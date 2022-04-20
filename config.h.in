@@ -1,0 +1,6 @@
+
+#cmakedefine PROJECT_NAME   "@CMAKE_PROJECT_NAME@"
+#define INSTALL_DIR    "@CMAKE_INSTALL_PREFIX@"
+#define BIN_DIR        "@CMAKE_INSTALL_BIN_DIR@"
+#define CONF_DIR       "@CMAKE_INSTALL_CONF_DIR@"
+#define SIMULATOR       @SIMULATOR@
