@@ -39,8 +39,8 @@
 #define TEMP_HUMI       3
 #define DISTANCE_T      4
 #define DISTANCE_E      5
-#define OLED_DATA       26
-#define OLED_CLOCK      6
+//#define OLED_DATA       26
+//#define OLED_CLOCK      6
 #define LED_RED         27
 #define LED_GRE         28
 #define LED_YEL         29
@@ -48,6 +48,9 @@
 #define BUF_SIZE        1024
 
 #define RESET           1
+
+#define MAX_CPU_TEMPER  60
+#define MAX_ENV_HUMIDI  75
 
 
 #define	FILE_MODE	(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
