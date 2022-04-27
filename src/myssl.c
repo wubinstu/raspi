@@ -7,14 +7,16 @@
 
 static int SSL_logLevel = LOG_ERR;
 
-SSL_CTX * initSSL(const char * mode)
+
+
+SSL_CTX * initSSL(enum SSL_mode mode)
 {
 	SSL_library_init();
 	OpenSSL_add_all_algorithms();
 	SSL_load_error_strings();
-	if(strcmp (mode,"server") == 0)
+	if(mode == server)
 		return SSL_CTX_new(SSLv23_server_method());
-	if(strcmp (mode,"client") == 0)
+	if(mode == client)
 		return SSL_CTX_new(SSLv23_client_method());
 	else return NULL;
 }
