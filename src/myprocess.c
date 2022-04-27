@@ -107,6 +107,8 @@ daemonize (const char *cmd)
 
 void my_exit()
 {
+	printf ("\n");
+	perr_d (true,LOG_INFO,"Service Will Exit After Cleanup");
 	pthread_cancel (thread_cheker);
 //	pthread_cancel (thread_sender);
 	if(mode_strict)
@@ -163,13 +165,13 @@ void check_running()
 {
 	if (access (PID_FILE,F_OK) == 0)
 	{
-		perr_d (true,LOG_ERR,"service already running! stopped.");
+		perr_d (true,LOG_ERR,"service already running! stopped. (If Not,Please type \"--clean\" to remove %s)",PID_FILE);
 		my_exit();
 	}
 	int fd = open (PID_FILE,O_CREAT|O_RDWR|O_TRUNC,FILE_MODE);
 	if(fd < 0)
 	{
-		perr_d (true,LOG_ERR,"PID file can NOT create");
+		perr_d (true,LOG_ERR,"PID file can NOT be created");
 		my_exit();
 	}
 	
