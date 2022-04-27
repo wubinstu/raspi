@@ -2,7 +2,7 @@
 // Created by Einc on 2022/4/9.
 //
 #include "head.h"
-#include "msg.h"
+//#include "msg.h"
 #include "types.h"
 #include "myssl.h"
 
@@ -30,7 +30,7 @@ socklen_t addr_size;
 long str_len,fd_num,state;
 char text[BUF_SIZE];
 struct sockaddr_in serv_addr,clnt_addr;
-unsigned short serv_port;
+unsigned short serv_port = 9190;
 
 void stop(int signo)
 {
@@ -80,7 +80,7 @@ void handler()
 				{
 					addr_size = sizeof(clnt_addr);
 					clnt_sock = accept(serv_sock,(struct sockaddr *)&clnt_addr,&addr_size);
-					if(clnt_sock == -1) {errors("Function accept() returns -1\n");exit(-1);}
+					if(clnt_sock == -1) {printf("Function accept() returns -1\n");exit(-1);}
 
 					FD_SET(clnt_sock,&reads);
 					if(mode_strict)
@@ -92,7 +92,7 @@ void handler()
 					}
 					if(fd_max < clnt_sock) fd_max = clnt_sock;
 					sprintf(text,"Connected Client: %d\n",clnt_sock);
-					success(text);
+					printf("%s",text);
 				}
 				else
 				{
@@ -104,13 +104,14 @@ void handler()
 //					if(mn.distance == 0) continue;
 					if(str_len == sizeof(mn))
 					{
+						printf ("Data From Client %d:\n",i);
 						printf("cpu temp = %.2fC\n",mn.cpu_temper);
 						printf("distance = %.2fcm\n",mn.distance);
 						printf("env temp = %.2fC\n",mn.env_temper);
 						printf("env humid = %.2f\n\n",mn.env_humidity);
 					}
 
-					if(str_len == -1) {errors("Function read() returns -1\n");exit (-1);}
+					if(str_len == -1) {printf("Function read() returns -1\n");exit (-1);}
 					else if(str_len == 0 || str_len == 4)
 					{
 						FD_CLR(i,&reads);
@@ -128,7 +129,7 @@ void handler()
 						if(mode_strict)
 							state = SSL_write (ssl_clnt_fd[i],"CON",4);
 						else state = write(i,"CON",4);
-						if(state == -1) {errors("Function write() returns -1\n");exit(-1);}
+						if(state == -1) {printf("Function write() returns -1\n");exit(-1);}
 					}
 				}
 			}
@@ -147,50 +148,75 @@ int main(int argc,char * argv[])
 
 	if(argc < 2)
 	{
-		errors("Need More Args\n");
+		printf("Need More Args\n");
 		return -1;
 	}
-	for (int i = 0;i < argc;i++)
+	for (int i = 1;i < argc;i++)
 	{
 		if(strcmp (argv[i],"--port") == 0)
-			serv_port = strtol (argv[i+1],NULL,10);
+		{
+			if(argv[i+1] != NULL)
+			{
+				serv_port = strtol (argv[i+1],NULL,10);
+				i++;
+			}
+			else
+			{
+				printf ("Missing Port\n");
+				return -1;
+			}
+			continue;
+		}
 		if(strcmp (argv[i],"--strict") == 0)
+		{
 			mode_strict = true;
+			continue;
+		}
 		if(strcmp (argv[i],"--check-clnt") == 0)
+		{
 			mode_check_clnt = true;
+			continue;
+		}
 		if(strcmp (argv[i],"--help") == 0)
 		{
-			printf ("Usage: [--port] port [--strict] [--check-clnt]\n");
+			printf ("Usage:  [--port] \tSpecify service port(default:9190)"
+					"\n\t[--strict] \tenable strict mode,using SSL transmission"
+					"\n\t[--check-clnt] \tCheck client identity\n");
 			return 0;
+		}
+		else
+		{
+			printf ("Unknown Parameter, Use \"--help\" for help information\n");
+			return -1;
 		}
 	}
 	if(mode_strict)
 	{
 		int flag;
-        ctx = initSSL ("server");
-        if(ctx == NULL) {errors ("init SSL failed\n");exit(-1);}
+        ctx = initSSL (server);
+        if(ctx == NULL) {printf("init SSL failed\n");exit(-1);}
 		flag = loadCert (ctx,UCert);
-		if(!flag) {errors ("User Cert Load failed\n");exit (-1);}
-		success ("User Cert %s load complete\n",UCert);
+		if(!flag) {printf("User Cert Load failed\n");exit (-1);}
+		printf("User Cert %s load complete\n",UCert);
 		flag = loadKey (ctx,UKey);
-		if(!flag) {errors ("User Private Key Load failed\n");exit (-1);}
-		success ("User Private Key %s load complete\n",UKey);
+		if(!flag) {printf("User Private Key Load failed\n");exit (-1);}
+		printf("User Private Key %s load complete\n",UKey);
 		flag = checkKey (ctx);
-		if(!flag) {errors ("User Private Key and Cert does NOT match\n");exit (-1);}
-		success ("User Private Key and Cert check complete\n");
+		if(!flag) {printf("User Private Key and Cert does NOT match\n");exit (-1);}
+		printf("User Private Key and Cert check complete\n");
 		
 		if(mode_check_clnt)
 		{
 			flag = loadCA (ctx,CAfile);
-			if(!flag) {errors ("CA file Load failed\n");exit(-1);}
-			success ("CA Cert %s load complete\n",CAfile);
+			if(!flag) {printf("CA file Load failed\n");exit(-1);}
+			printf("CA Cert %s load complete\n",CAfile);
 		}
 	}
 
 
 
 	serv_sock = socket(PF_INET,SOCK_STREAM,0);
-	if(serv_sock == -1) {errors("Function socket() returns -1\n");exit(-1);}
+	if(serv_sock == -1) {printf("Function socket() returns -1\n");exit(-1);}
  
 	memset(&serv_addr,0,sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
@@ -198,11 +224,11 @@ int main(int argc,char * argv[])
 	serv_addr.sin_port = htons(serv_port);
 
 	state = bind(serv_sock,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
-	if(state == -1) {errors("Function bind() returns -1\n");exit(-1);}
+	if(state == -1) {printf("Function bind() returns -1\n");exit(-1);}
 
 	state = listen(serv_sock,5);
-	if(state == -1) {errors("Function listen() return -1\n");exit(-1);}
-	else {success("The Server Socket Created\n");printf("Server Port: %d\n",serv_port);}
+	if(state == -1) {printf("Function listen() return -1\n");exit(-1);}
+	else {printf("The Server Socket Created\n");printf("Server Port: %d\n",serv_port);}
 	
 	
 	handler();
