@@ -6,6 +6,7 @@
 #include "myssl.h"
 #include "conf.h"
 
+
 unsigned long serv_ip = 0;
 unsigned short serv_port = 0;
 int interval = 10;
@@ -28,6 +29,7 @@ pthread_t thread_cheker;
 
 jmp_buf myjmp;
 
+
 // TODO
 // -1. ssl
 // -2. socket no waiting
@@ -47,12 +49,18 @@ int main(int argc,const char * argv[])
 {
 	
 	// Check Runtime parameters
-	for(int i = 0;i < argc;i++)
+	for(int i = 1;i < argc;i++)
 	{
 		if(strcmp (argv[i],"--daemon") == 0)
+		{
 			mode_daemon = true;
+			continue;
+		}
 		else if(strcmp (argv[i],"--strict") == 0)
+		{
 			mode_strict = true;
+			continue;
+		}
 		else if(strcmp (argv[i],"--clean") == 0)
 		{
 			printf ("%s will be deleted\n",PID_FILE);
@@ -67,15 +75,29 @@ int main(int argc,const char * argv[])
 			exit (0);
 		}
 		else if(strcmp (argv[i],"--settings") == 0)
+		{
+			if(geteuid() != 0)
+			{
+				printf ("Note: you do not have root permission\n"
+						"it will open in read-only mode(Press Any Key To Continue)");
+				getchar();
+			}
 			execlp ("vim","vim",CONF_FILE,NULL);
+		}
 		
 		else if(strcmp (argv[i],"--help") == 0)
 		{
-			printf ("Usage: [--daemon] [--strict] [--clean] [--default-conf] [--settings]");
+			printf ("Usage:  [--daemon] \t Runing in daemon mode\n\t[--strict] \t Entering strict mode\n\t"
+					"[--clean] \t Delete PID file\n\t[--default-conf] Create(Overwrite) default configuration file\n\t[--settings] \t Open(VIM editor) configuration file\n");
 			exit (0);
 		}
+		else
+		{
+			printf ("Unknown Parameter, Use \"--help\" for help information\n");
+			exit (-1);
+		}
 	}
-	printf ("daemonMode = %d,strictMode = %d\n",mode_daemon,mode_strict);
+	printf ("daemonMode = %s,strictMode = %s\n",mode_daemon?"true":"false",mode_strict?"true":"false");
 	if(mode_daemon)
 		daemonize (PROJECT_NAME);
 	
@@ -84,7 +106,7 @@ int main(int argc,const char * argv[])
 		// Check whether you have root privileges
 		if(geteuid() != 0)
 		{
-			printf ("root privileges are required!\n");
+			printf ("root permission are required (To create pid file)!\n");
 			return -1;
 		}
 		// Ensure that only one program runs at the same time according to the PID file
@@ -102,7 +124,7 @@ int main(int argc,const char * argv[])
 	if(mode_strict)
 	{
 		int flag;
-		ctx = initSSL("client");
+		ctx = initSSL(client);
 		if(ctx == NULL) my_exit();
 		flag = loadCA (ctx,CAfile);
 		if(!flag) my_exit();
