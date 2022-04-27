@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.0)
-project(rain VERSION 1.4 LANGUAGES C)
+cmake_minimum_required(VERSION 3.10)
+project(rain VERSION 1.5 LANGUAGES C)
 
 set(SIMULATOR false)
 set(CMAKE_INSTALL_PREFIX /usr/local)
@@ -36,13 +36,13 @@ link_directories(lib)
 # add lib
 add_library(arr STATIC src/arr.c)
 add_library(conf STATIC src/conf.c)
-add_library(file STATIC src/file.c)
+#add_library(file STATIC src/file.c)
 add_library(filed STATIC src/filed.c)
-add_library(msg STATIC src/msg.c)
+#add_library(msg STATIC src/msg.c)
 add_library(msgd STATIC src/msgd.c)
 add_library(mylink STATIC src/mylink.c)
 add_library(myprocess STATIC src/myprocess.c)
-add_library(mysock STATIC src/mysock.c)
+#add_library(mysock STATIC src/mysock.c)
 add_library(mysockd STATIC src/mysockd.c)
 add_library(myssl STATIC src/myssl.c)
 add_library(mythread STATIC src/mythread.c)
@@ -52,18 +52,18 @@ add_library(types STATIC src/types.c)
 
 # Library dependency
 target_link_libraries(conf arr filed mylink)
-target_link_libraries(file msg)
+#target_link_libraries(file msg)
 target_link_libraries(filed msgd)
 target_link_libraries(mylink types)
 target_link_libraries(myprocess msgd myssl raspi)
-target_link_libraries(mysock msg)
+#target_link_libraries(mysock msg)
 target_link_libraries(mysockd msgd)
 target_link_libraries(myssl crypto msgd ssl)
-target_link_libraries(mythread conf msgd myprocess mysockd myssl raspi types)
+target_link_libraries(mythread arr conf msgd myprocess mysockd myssl raspi types)
 target_link_libraries(raspi msgd)
 
 if(NOT ${SIMULATOR})
-target_link_libraries(raspi wiringPi)
+    target_link_libraries(raspi wiringPi)
 endif()
 
 
@@ -74,7 +74,7 @@ add_executable(test_server test_server.c)
 
 
 target_link_libraries(raind conf msgd myprocess mysockd mythread myssl pthread raspi)
-target_link_libraries(test_server msg mysockd myssl types)
+target_link_libraries(test_server mysockd myssl types)
 
 
 set(systemdUnit /usr/lib/systemd/system)
