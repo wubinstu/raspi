@@ -15,6 +15,16 @@
 但我们也准备了一个简单的基于select()的并发测试服务器: test_server.c
 ```
 
+### 版本 1.5 更新汇总
+```text
+1. 优化了帮助信息提示
+2. 修复了因可能的测量误差而发出的高温湿度警告
+3. 弃用了旧版库(msg,file,mysock)
+4. 测试服务器在并发处理多客户端时,增加了客户端鉴别
+5. 优化了提权逻辑
+6. 优化了配置文件读取逻辑,提升了运行速度
+```
+
 ### 版本 1.4 更新汇总
 ```text
 1. 修复了主函数参数bug
@@ -182,13 +192,15 @@ FRecAtps = 7
 
 ## 工程结构
 ### 目标依赖关系:
+*标识:即将弃用
 ```text
     依赖(target) <- 被依赖
     conf        <- arr filed mylink
+   *file        <- msg
     file(d)     <- msg(d)
     mylink      <- types
     myprocess   <- msgd raspi
-    mysock      <- msg
+   *mysock      <- msg
     myssl       <- crypto msgd ssl
     mythread    <- conf msgd myprocess mysockd raspi types
     raspi       <- msgd wiringPi
@@ -206,7 +218,7 @@ FRecAtps = 7
         readconf,defaultconf,checkconf
         checkread
 
-    file:
+   *file:
         file_size,readopen,writeopen
         rwopen,newopen,fcopyfile
     filed:
@@ -214,7 +226,7 @@ FRecAtps = 7
         writeopen_d,rwopen_d,newopen_d
         fcopyfile_d
         
-    msg:
+   *msg:
         errors,warnings,success
         perr
     msgd:
@@ -229,7 +241,7 @@ FRecAtps = 7
         daemonize,my_exit,reset
         check_running,sig_reg
 
-    mysock:
+   *mysock:
         NameToHost,creatServSock,connectServ
         acceptClnt,sockReuseAddr,sockNagle
     mysockd:
