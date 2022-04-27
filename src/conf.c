@@ -59,6 +59,9 @@ void defaultconf(const char * file_path)
 			"#FRecAtps = 20\n",
 			"\n"
 	};
+	/**
+	 * Remember to modify the loop condition
+	 * when you change the above array */
 	for(int i = 0;i < 43;i++)
 		write (rw_fd, default_msg[i], strlen(default_msg[i]));
 
