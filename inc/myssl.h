@@ -11,8 +11,14 @@
 #include "openssl/err.h"
 #include "openssl/x509.h"
 
+enum SSL_mode
+{
+	server,
+	client
+};
+
 /** Initialize with SSLv23, the parameter value: "server" or "client" */
-extern SSL_CTX * initSSL(const char * mode);
+extern SSL_CTX * initSSL(enum SSL_mode mode);
 
 /** Load the CA certificate of the specified path */
 extern bool loadCA(SSL_CTX * ctx,const char * CA_path);
