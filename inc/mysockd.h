@@ -30,4 +30,7 @@ extern void sockNagle_d(int fd);
 /** Sets whether the socket has the "flag" attribute and return flag */
 extern int set_fl_d(int fd,int flags,bool isTrue);
 
+/** Check whether the file descriptor is valid  */
+extern bool check_fd(int fd);
+
 #endif

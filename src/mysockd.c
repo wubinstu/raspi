@@ -1,7 +1,7 @@
 #include "mysockd.h"
 #include "msgd.h"
 
-// Default LOG_LEVEL : LOG_WARNING
+/// Default LOG_LEVEL : LOG_WARNING
 static int mysockd_logLevel = 4;
 
 void setMysockdLogLevel(int logLevel)
@@ -10,7 +10,7 @@ void setMysockdLogLevel(int logLevel)
 }
 
 char * NameToHost_d(char * domain)
-// use gethostbyname to conv domain name to ip addr
+/// use gethostbyname to conv domain name to ip addr
 {
     struct hostent * host;
     host = gethostbyname(domain);
@@ -51,6 +51,7 @@ int creatServSock_d(unsigned long ip_addr,unsigned short host_port,int listen_qu
 	    return -1;
     }
     // SERVER socket created!
+	perr_d (true,LOG_INFO,"Server Socket Created, fd = %d, port = %d",serv, ntohs (serv_addr.sin_port));
 
     return serv;
 }
@@ -74,14 +75,14 @@ int connectServ_d(unsigned long ip_addr,unsigned short host_port)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = ip_addr;
     addr.sin_port = htons(host_port);
-    
+    // send connection request
     status = connect(sock,(struct sockaddr *)&addr,addr_size);
     if(status == -1)
     {
     	perr_d(true,mysockd_logLevel,"function connect returns -1 when called connectServ");
 	    return -1;
     }
-    // send connection request
+    perr_d (true,LOG_INFO,"Successfully connected to server[%d] %s:%d",sock, inet_ntoa (addr.sin_addr), ntohs (addr.sin_port));
 
     return sock;
 }
@@ -97,7 +98,7 @@ int acceptClnt_d(int server_fd,struct sockaddr_in * clnt_addr)
 }
 
 void sockReuseAddr_d(int serv_fd)
-// ignore Time-to-wait 
+/// ignore Time-to-wait
 {
     int opt = 1;
     int status = setsockopt(serv_fd,SOL_SOCKET,SO_REUSEADDR,(void *)&opt,(socklen_t)sizeof(opt));
@@ -105,7 +106,7 @@ void sockReuseAddr_d(int serv_fd)
 }
 
 void sockNagle_d(int fd)
-// nagle, not recommended when you trans big file
+/// nagle, not recommended when you trans big file
 {
     int opt = 1;
     int status = setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,(void *)&opt,(socklen_t)sizeof(opt));
@@ -113,7 +114,7 @@ void sockNagle_d(int fd)
 }
 
 int set_fl_d(int fd,int flags,bool isTrue)
-// Set fd's Properties
+/// Set fd's Properties
 {
 	int val;
 	if((val = fcntl(fd,F_GETFL,0)) < 0)
@@ -123,4 +124,11 @@ int set_fl_d(int fd,int flags,bool isTrue)
 	if(fcntl(fd,F_SETFL,val) < 0)
 		perr_d(true,mysockd_logLevel,"function fcntl F_SETFL error when called set_fl");
 	return val;
+}
+
+bool check_fd(int fd)
+{
+	if(fcntl (fd,F_GETFL,0) == -1)
+		return false;
+	else return true;
 }
