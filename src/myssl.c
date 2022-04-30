@@ -23,6 +23,7 @@ SSL_CTX * initSSL(enum SSL_mode mode)
 
 bool loadCA(SSL_CTX * ctx,const char * CA_path)
 {
+	errno = 0;
 	int status = SSL_CTX_load_verify_locations (ctx,CA_path,NULL);
 	if(status <= 0)
 	{
@@ -36,6 +37,7 @@ bool loadCA(SSL_CTX * ctx,const char * CA_path)
 
 bool loadCert(SSL_CTX * ctx,const char * Cert_path)
 {
+	errno = 0;
 	int status = SSL_CTX_use_certificate_file(ctx,Cert_path,X509_FILETYPE_PEM);
 	if(status <= 0)
 	{
@@ -48,6 +50,7 @@ bool loadCert(SSL_CTX * ctx,const char * Cert_path)
 
 bool loadKey(SSL_CTX * ctx,const char * Key_path)
 {
+	errno = 0;
 	int status = SSL_CTX_use_PrivateKey_file(ctx,Key_path,SSL_FILETYPE_PEM);
 	if(status <= 0)
 	{
@@ -60,6 +63,7 @@ bool loadKey(SSL_CTX * ctx,const char * Key_path)
 
 bool checkKey(SSL_CTX * ctx)
 {
+	errno = 0;
 	int status = SSL_CTX_check_private_key (ctx);
 	if(status <= 0)
 	{
@@ -72,6 +76,7 @@ bool checkKey(SSL_CTX * ctx)
 
 void showPeerCert(SSL * ssl_fd)
 {
+	errno = 0;
 	X509 * cert;
 	char * line;
 	int show_level = LOG_INFO;
@@ -94,6 +99,7 @@ void showPeerCert(SSL * ssl_fd)
 
 void showSelfCert(SSL * ssl_fd)
 {
+	errno = 0;
 	X509 * cert;
 	char * line;
 	int show_level = LOG_INFO;
@@ -116,6 +122,7 @@ void showSelfCert(SSL * ssl_fd)
 
 SSL * SSL_fd(SSL_CTX * ctx,int fd)
 {
+	errno = 0;
 	SSL * ssl_fd = SSL_new (ctx);
 	int status = SSL_set_fd (ssl_fd,fd);
 	if(status == -1)
