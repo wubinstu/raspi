@@ -10,6 +10,7 @@ static int conf_logLevel = LOG_WARNING;
 
 void defaultconf(const char * file_path)
 {
+	errno = 0;
 	setFiledLogLevel (conf_logLevel);
 	int rw_fd = newopen_d (file_path);
 	if(rw_fd == -1) return;
@@ -70,6 +71,7 @@ void defaultconf(const char * file_path)
 
 LNode readconf (const char *file_path)
 {
+	errno = 0;
 	setFiledLogLevel (conf_logLevel);
 	FILE * conf_stream = fopen (file_path,"r");
 
@@ -114,6 +116,7 @@ LNode readconf (const char *file_path)
 
 bool checkconf(const char * file_path)
 {
+	errno = 0;
 	bool flag = true;
 	
 	int fd = readopen_d (file_path);
@@ -133,6 +136,7 @@ bool checkconf(const char * file_path)
 
 bool checkread(LNode L)
 {
+	errno = 0;
 	bool flag =  (L -> next != NULL);
 	if(flag)
 	{
