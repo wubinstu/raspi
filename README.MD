@@ -2,40 +2,17 @@
 ```text
 本工程是本人由于兴趣在大学二,三年级学习了《TCP/IP网络编程》的全部章节
 和《UNIX环境高级编程》的部分章节 (第1~4章,第7~11章和第13章)
-后一点一点手写慢慢调试起来的,而非百度粘贴!!!
+后一点一点手写慢慢调试起来的,非百度粘贴~~~
 ```
 
 ### 简介
 ```text
 纯C语言的Unix学习型项目,学习C,网络编程和内核编程的童鞋不要错过哦~
 编写于树莓派4b,基于wiringPi库的数据实时检测采集并上传指定服务器的客户端
-项目名称"慧停车",将树莓派放置于停车位附近,根据距离判定车位是否空闲
+现实意义:将树莓派放置于停车位附近,根据距离判定车位是否空闲
 
 服务器端还在开发中...
 但我们也准备了一个简单的基于select()的并发测试服务器: test_server.c
-```
-
-### 版本 1.5 更新汇总
-```text
-1. 优化了帮助信息提示
-2. 修复了因可能的测量误差而发出的高温湿度警告
-3. 弃用了旧版库(msg,file,mysock)
-4. 测试服务器在并发处理多客户端时,增加了客户端鉴别
-5. 优化了提权逻辑
-6. 优化了配置文件读取逻辑,提升了运行速度
-```
-
-### 版本 1.4 更新汇总
-```text
-1. 修复了主函数参数bug
-2. 优化了守护进程使用逻辑
-3. 新增了"严格模式"
-    a.检查PID文件
-    b.使用SSL通信(基于OpenSSL-Dev库)
-4. 提供测试使用的证书和密钥(文件夹keys/readme.txt)
-5. 优化了测试服务器的收数据逻辑,加强了程序出错健壮性
-6. 当发生错误等级高于ERROR时由直接退出改为自定义退出函数
-7. 修复了配置文件读入时会对value转大写的bug,调整了单条配置的空间分配
 ```
 
 ### 没有树莓派?
@@ -54,16 +31,12 @@
 $ git clone https://gitee.com/Einc/raspi.git
 
 # 编译
-$ cd raspi
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
-# 安装(可选)
-$ sudo make install
-
+$ cd raspi && mkdir build && cd build && cmake .. && make
 #或者
-$ cd raspi && cmake -B build && cmake --build build && (sudo cmake --install build)
+$ cd raspi && cmake -B build && cmake --build build
+
+# 安装(可选)
+$ sudo cmake --install build || make install
 ```
 ### 使用
 ```text
@@ -96,6 +69,8 @@ $ sudo bin/raind --clean
 $ sudo bin/raind --default-conf
 # 参数五: 快捷打开配置文件
 $ sudo bin/raind --settings
+# 参数六: 帮助信息
+$ sudo bin/raind --help
 
 # 服务模式
 # 启动
@@ -192,7 +167,7 @@ FRecAtps = 7
 
 ## 工程结构
 ### 目标依赖关系:
-*标识:即将弃用
+*标识:弃用
 ```text
     依赖(target) <- 被依赖
     conf        <- arr filed mylink
@@ -239,7 +214,8 @@ FRecAtps = 7
         
     myprocess:
         daemonize,my_exit,reset
-        check_running,sig_reg
+        check_running,check_permission,sig_reg
+        dealWithArgs
 
    *mysock:
         NameToHost,creatServSock,connectServ
@@ -247,7 +223,7 @@ FRecAtps = 7
     mysockd:
         setFiledLogLevel,NameToHost_d,creatServSock_d
         connectServ_d,acceptClnt_d,sockReuseAddr_d
-        sockNagle_d,set_fl_d
+        sockNagle_d,set_fl_d,check_fd
         
     myssl:
         initSSL,loadCA,loadCert
@@ -263,7 +239,7 @@ FRecAtps = 7
         turn_off_led,flash_led,disMeasure
         TEST_IN,ReadSensorData,screen
 
-    sundry:
+    *sundry:
         procbar,procbar_f,isDebugger
 
     types:
