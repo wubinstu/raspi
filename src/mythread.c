@@ -13,15 +13,8 @@
 #include "arr.h"
 
 
-extern unsigned long serv_ip;
-extern unsigned short serv_port;
-extern int interval;
-extern int frectime;
-extern int frecatps;
-extern char CAfile[256];
-extern char UCert[256];
-extern char UKey[256];
-extern bool checkMe;
+extern confOpt co;
+
 extern int serv_fd;
 extern SSL * ssl_serv_fd;
 extern SSL_CTX * ctx;
@@ -50,70 +43,70 @@ void conf2var()
 	{
 		if(strcmp (e[i].name,"SERVADDR") == 0)
 		{
-			serv_ip = inet_addr(NameToHost_d(e[i].value));
+			co.serv_ip = inet_addr(NameToHost_d(e[i].value));
 			continue;
 		}
 		else if(strcmp (e[i].name,"SERVPORT") == 0)
 		{
-			serv_port = (unsigned short)strtol(e[i].value,NULL,10);
+			co.serv_port = (unsigned short)strtol(e[i].value,NULL,10);
 			continue;
 		}
 		else if(strcmp (e[i].name,"INTERVAL") == 0)
 		{
-			interval = (int)strtol(e[i].value,NULL,10);
+			co.interval = (int)strtol(e[i].value,NULL,10);
 			continue;
 		}
 		else if(strcmp (e[i].name,"FRECTIME") == 0)
 		{
-			frectime = (int)strtol(e[i].value,NULL,10);
+			co.frectime = (int)strtol(e[i].value,NULL,10);
 			continue;
 		}
 		else if(strcmp (e[i].name,"FRECATPS") == 0)
 		{
-			frecatps = (int)strtol(e[i].value,NULL,10);
+			co.frecatps = (int)strtol(e[i].value,NULL,10);
 			continue;
 		}
 		else if(strcmp (e[i].name,"CAFILE") == 0)
 		{
-			strcpy (CAfile,e[i].value);
+			strcpy (co.CAfile,e[i].value);
 			continue;
 		}
 		else if(strcmp (e[i].name,"CHECKME") == 0)
 		{
 			lowerConversion (e[i].value);
 			if(strcmp (e[i].value,"true") == 0)
-				checkMe = true;
+				co.checkMe = true;
 			else if(strcmp (e[i].value,"false") == 0)
-				checkMe = false;
+				co.checkMe = false;
 			else
 				perr_d (true,LOG_NOTICE,"Unknown configure option %s=%s",e[i].name,e[i].value);
 			continue;
 		}
 		else if(strcmp (e[i].name,"UCERT") == 0)
 		{
-			strcpy (UCert,e[i].value);
+			strcpy (co.UCert,e[i].value);
 			continue;
 		}
 		else if(strcmp (e[i].name,"UKEY") == 0)
 		{
-			strcpy (UKey,e[i].value);
+			strcpy (co.UKey,e[i].value);
 			continue;
 		}
 		else perr_d (true,LOG_NOTICE,"Unknown configure option %s=%s",e[i].name,e[i].value);
 	}
-	if(serv_ip == -1)
+	if(co.serv_ip == -1)
 	{
 		perr_d (true,LOG_ERR,"The server IP address could not be read correctly from the configuration file");
 		my_exit();
 	}
-	if(serv_port == 0)
+	if(co.serv_port == 0)
 	{
 		perr_d (true,LOG_ERR,"The server port could not be read correctly from the configuration file");
 		my_exit();
 	}
-	if(checkMe == true && (UCert[0] == 0 || UKey[0] == 0))
+	if(co.checkMe == true && (strlen(co.UCert) == 0 || strlen(co.UKey) == 0))
 	{
-		perr_d (true,LOG_ERR,"User cert or key error");
+		perr_d (true,LOG_ERR,"User cert or key not specified");
 		my_exit();
 	}
 }
@@ -125,18 +118,17 @@ int tryconnect(int led)
 	do
 	{
 		perr_d (true,LOG_INFO,"Trying to connect to the server...");
-		serv_fd = connectServ_d (serv_ip,serv_port);
+		serv_fd = connectServ_d (co.serv_ip,co.serv_port);
 		if(serv_fd == -1)
 		{
-			if(frecatps-- == 0) return -1;
-			perr_d (true,LOG_NOTICE,"Miss Connection, Retry in %d secs",frectime);
-			sleep (frectime);
+			if(co.frecatps-- == 0) return -1;
+			perr_d (true,LOG_NOTICE,"Miss Connection, Retry in %d secs",co.frectime);
+			sleep (co.frectime);
 		}
 	}while(serv_fd == -1);
 	
 	errno = 0;
 	turn_on_led (led);
-	perr_d (true,LOG_INFO,"Successfully connected to server");
 	
 	set_fl_d (serv_fd,O_NONBLOCK,false);
 	sockNagle_d (serv_fd);
@@ -151,12 +143,12 @@ _Noreturn void * check_monit(void * arg)
 	int while_counts = 0;
 	int notice_counts = 5;
 	int while_counts_copy = -1;
-	int sleep_time = interval / 2;
+	int sleep_time = co.interval / 2;
 	bool can_be_record = true;
 	while (true)
 	{
 		pthread_mutex_lock (&mutex_monit);
-		memset (&mn,0, sizeof (mn));
+		clearMonit (&mn);
 		mn.cpu_temper = read_cpu_temp();
 		mn.distance = disMeasure (DISTANCE_T,DISTANCE_E);
 		readSensorData (TEMP_HUMI,&mn.env_humidity,&mn.env_temper);
@@ -195,8 +187,8 @@ _Noreturn void * check_monit(void * arg)
 				turn_on_led (LED_YEL);
 				perr_d (true,LOG_WARNING,"The temperature or humidity is too high");
 			}
-			else turn_off_led (LED_YEL);
 		}
+		else turn_off_led (LED_YEL);
 
 		while_counts ++;
 		while_counts %= 9;
@@ -228,51 +220,54 @@ _Noreturn void * sendData(int led)
 {
 	char status[4];
 	ssize_t read_len,write_len;
+	int sleep_time = co.interval;
 	while (true)
 	{
+		sleep_time = co.interval;
 		memset (status,0, 4);
 		
 		// The distance cannot be 0, which means no valid data is read by default
 		if(mn.distance == 0)
 		{
-			sleep (interval);
+			sleep (sleep_time);
 			continue;
 		}
-		pthread_mutex_lock (&mutex_monit);
 		
+		pthread_mutex_lock (&mutex_monit);
 		if(mode_strict)
 			write_len = SSL_write (ssl_serv_fd,&mn,sizeof(mn));
 		else write_len = write (serv_fd,&mn,sizeof(mn));
-		
 		pthread_mutex_unlock (&mutex_monit);
+		
 		printf ("write done. len = %zd\n",write_len);
 		
-		alarm (10);
+		alarm (10);  // set a timer
 		if(mode_strict)
 			read_len = SSL_read (ssl_serv_fd,status,4);
 		else read_len = read (serv_fd, status,4);
-		alarm (0);
+		alarm (0);  // unset timer
 		flash_led (led,90);
 		
-		if(strcmp (status,"FIN") == 0 || read_len <= 0)
+		if(strcmp (status,"FIN") == 0)
 		{
-			printf ("FIN received, len = %zd, wait for %d secs\n",read_len,interval);
-			sleep (interval);
-			reset();
+			printf ("FIN received, len = %zd, exiting in %d secs\n",read_len,sleep_time);
+			sleep (sleep_time);
+			my_exit();
 		}
-		if(read_len == 0)
-		{
-			perr_d(true,LOG_NOTICE,"Server Disconnected, wait for %d secs",interval);
-			sleep (interval);
-			reset();
-		}
+//		if(read_len == 0)
+//		{
+//			sleep_time = co.interval * 2;
+//			perr_d(true,LOG_NOTICE,"Server closed, wait for %d secs",sleep_time);
+//			// reset();
+//		}
 		else if(read_len == -1)
 		{
-			perr_d (true,LOG_ERR,"NetWork Error! Service Will reset in %d secs",interval*5);
-			sleep (interval*5);
+			sleep_time = co.interval * 5;
+			perr_d (true,LOG_ERR,"NetWork Error! Service Will reset in %d secs",sleep_time);
+			sleep (sleep_time);
 			reset();
 		}
 		
-		sleep (interval);
+		sleep (sleep_time);
 	}
 }
