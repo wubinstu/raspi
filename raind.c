@@ -4,114 +4,64 @@
 #include "msgd.h"
 #include "mythread.h"
 #include "myssl.h"
-#include "conf.h"
+#include "types.h"
 
+/// Used For Configuration File
+confOpt co;
 
-unsigned long serv_ip = 0;
-unsigned short serv_port = 0;
-int interval = 10;
-int frectime = 42;
-int frecatps = 7;
-bool checkMe = false;
-char CAfile[256] = {0};
-char UCert[256] = {0};
-char UKey[256] = {0};
+/// server fd
 int serv_fd = -1;
 SSL * ssl_serv_fd = NULL;
+/// certificate
 SSL_CTX * ctx = NULL;
 
+/// runtime mode
 bool mode_daemon = false;
 bool mode_strict = false;
 
+/// thread variable
 //pthread_t thread_sender;
-pthread_t thread_cheker;
+pthread_t thread_cheker = 0;
 
-
+/// recovery buffer
 jmp_buf myjmp;
 
 
 // TODO
-// -1. ssl
-// -2. socket no waiting
-// -3. server first stop(alram read)
-// -4. fd mg
-// -5. DNS
-// -6. service file
-// -7. data thread
-// -8. flash led
-// --9. thread pause resume
-// all done
+// 1. [DONE] enable ssl transmission
+// 2. [IGNORE] set socket to no blocking mode
+// 3. [DONE] Recover in case of network error or server send disconnect (alram read)
+// 4. [IGNORE] fd manage
+// 5. [DONE] Supports the use of domain names instead of server IPv4 addresses (DNS)
+// 6. [DONE] Systemd Unit service file
+// 7. [DONE] Create a independent thread for data collection
+// 8. [DONE] flash led, Set different meanings for LED lights
+// 9. [IGNORE] thread pause resume
+// 10. [DONE] compact exit
+// 11. [DONE] deal with runtime args
+// 12. [WAITING] Create a Controler Program
+// 13. [DONE] package configuration file's global variable to structural
 
-// problem:
-// 1. longjmp thread undefined
+// problems:
+// 1. [SOLVED] longjmp thread undefined
+// 2. [WAITING] segmentation fault when exit
 
 int main(int argc,const char * argv[])
 {
-	
+
 	// Check Runtime parameters
-	for(int i = 1;i < argc;i++)
-	{
-		if(strcmp (argv[i],"--daemon") == 0)
-		{
-			mode_daemon = true;
-			continue;
-		}
-		else if(strcmp (argv[i],"--strict") == 0)
-		{
-			mode_strict = true;
-			continue;
-		}
-		else if(strcmp (argv[i],"--clean") == 0)
-		{
-			printf ("%s will be deleted\n",PID_FILE);
-			unlink (PID_FILE);
-			exit (0);
-		}
-		else if(strcmp (argv[i],"--default-conf") == 0)
-		{
-			printf ("reset %s\n",CONF_FILE);
-			unlink (CONF_FILE);
-			defaultconf (CONF_FILE);
-			exit (0);
-		}
-		else if(strcmp (argv[i],"--settings") == 0)
-		{
-			if(geteuid() != 0)
-			{
-				printf ("Note: you do not have root permission\n"
-						"it will open in read-only mode(Press Any Key To Continue)");
-				getchar();
-			}
-			execlp ("vim","vim",CONF_FILE,NULL);
-		}
-		
-		else if(strcmp (argv[i],"--help") == 0)
-		{
-			printf ("Usage:  [--daemon] \t Runing in daemon mode\n\t[--strict] \t Entering strict mode\n\t"
-					"[--clean] \t Delete PID file\n\t[--default-conf] Create(Overwrite) default configuration file\n\t[--settings] \t Open(VIM editor) configuration file\n");
-			exit (0);
-		}
-		else
-		{
-			printf ("Unknown Parameter, Use \"--help\" for help information\n");
-			exit (-1);
-		}
-	}
-	printf ("daemonMode = %s,strictMode = %s\n",mode_daemon?"true":"false",mode_strict?"true":"false");
-	if(mode_daemon)
-		daemonize (PROJECT_NAME);
-	
+	dealWithArgs (argc,argv);
+
 	if(mode_strict)
 	{
 		// Check whether you have root privileges
-		if(geteuid() != 0)
-		{
-			printf ("root permission are required (To create pid file)!\n");
+		if(!check_permission ("To create pid file"))
 			return -1;
-		}
 		// Ensure that only one program runs at the same time according to the PID file
 		check_running();
 	}
+	if(mode_daemon)
+		daemonize (PROJECT_NAME);
 	// init wiringPi lib
 	initPi();
 	// Set up an archive point
@@ -126,14 +76,14 @@ int main(int argc,const char * argv[])
 		int flag;
 		ctx = initSSL(client);
 		if(ctx == NULL) my_exit();
-		flag = loadCA (ctx,CAfile);
+		flag = loadCA (ctx,co.CAfile);
 		if(!flag) my_exit();
-		if(checkMe)
+		if(co.checkMe)
 		{
-			flag = loadCert (ctx,UCert);
+			flag = loadCert (ctx,co.UCert);
 			if(!flag) my_exit();
 			
-			flag = loadKey (ctx,UKey);
+			flag = loadKey (ctx,co.UKey);
 			if(!flag) my_exit();
 			
 			flag = checkKey (ctx);
@@ -148,15 +98,19 @@ int main(int argc,const char * argv[])
 		perr_d (true,LOG_ERR,"Maximum number of reconnections exceeded");
 		my_exit();
 	}
-	if(jmp_rtn != RESET)
-		pthread_create (&thread_cheker, NULL, check_monit, NULL);
+
 	
 	if(mode_strict)
 	{
 		ssl_serv_fd = SSL_fd (ctx,serv_fd);
 		if(ssl_serv_fd == NULL) my_exit();
-		SSL_connect (ssl_serv_fd);
-		if(checkMe)
+		int SSL_handShake = SSL_connect (ssl_serv_fd);
+		if (SSL_handShake == -1)
+		{
+			perr_d (true,LOG_ERR,"Server authentication failed, connection disconnected");
+			my_exit();
+		}
+		if(co.checkMe)
 		{
 			printf ("Self Cert:\n");
 			showSelfCert (ssl_serv_fd);
@@ -164,6 +118,10 @@ int main(int argc,const char * argv[])
 		printf ("Peer Cert:\n");
 		showPeerCert (ssl_serv_fd);
 	}
+	
+	if(jmp_rtn != RESET)
+		pthread_create (&thread_cheker, NULL, check_monit, NULL);
+	
 	sendData (LED_YEL);
 	
 }
