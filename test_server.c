@@ -2,7 +2,6 @@
 // Created by Einc on 2022/4/9.
 //
 #include "head.h"
-//#include "msg.h"
 #include "types.h"
 #include "myssl.h"
 
@@ -13,7 +12,7 @@ int clnt_sock;
 bool mode_strict = false;
 bool mode_check_clnt = false;
 
-SSL * ssl_clnt_fd[__FD_SETSIZE / __NFDBITS];
+SSL * ssl_clnt_fd[sizeof (fd_set)];
 SSL_CTX * ctx;
 
 #define UCert "/home/pi/raspi/keys/server.crt"
@@ -32,6 +31,13 @@ char text[BUF_SIZE];
 struct sockaddr_in serv_addr,clnt_addr;
 unsigned short serv_port = 9190;
 
+bool check_fd(int fd)
+{
+	if(fcntl (fd,F_GETFL,0) == -1)
+		return false;
+	else return true;
+}
+
 void stop(int signo)
 {
 	printf(" stop called\n");
@@ -40,19 +46,17 @@ void stop(int signo)
 	{
 		if(FD_ISSET(i,&copy_reads))
 		{
-			if(mode_strict)
+			if(check_fd (i))
 			{
-				SSL_write (ssl_clnt_fd[i],"FIN",4);
-				SSL_shutdown (ssl_clnt_fd[i]);
-				SSL_free (ssl_clnt_fd[i]);
+				write(i,"FIN",4);
+				close(i);
 			}
-			else write(i,"FIN",4);
-			close(i);
 		}
 	}
 	if(mode_strict) SSL_CTX_free (ctx);
-	close(serv_sock);
-	// signal(SIGINT,stop);
+	if(check_fd (serv_sock))
+		close(serv_sock);
+
 	exit(0);
 }
 
