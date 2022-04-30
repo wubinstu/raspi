@@ -11,6 +11,7 @@ void setFiledLogLevel(int logLevel)
 
 long file_size_d(const char * file_path)
 {
+	errno = 0;
     struct stat statbuf;
     int state = stat (file_path,&statbuf);
     if(state == -1)
@@ -23,6 +24,7 @@ long file_size_d(const char * file_path)
 
 int readopen_d(const char * file_path)
 {
+	errno = 0;
     int state = access(file_path,F_OK);
     if(state == -1)
     {
@@ -36,6 +38,7 @@ int readopen_d(const char * file_path)
 
 int writeopen_d(const char * file_path)
 {
+	errno = 0;
     int fd;
     if(access(file_path,F_OK) == -1)
     {
@@ -55,6 +58,7 @@ int writeopen_d(const char * file_path)
 
 int rwopen_d(const char * file_path)
 {
+	errno = 0;
     int fd;
     if(access(file_path,F_OK) == -1)
     {
@@ -74,6 +78,7 @@ int rwopen_d(const char * file_path)
 
 int newopen_d(const char * file_path)
 {
+	errno = 0;
     int fd;
     if(access(file_path,F_OK) == -1)
     {
@@ -93,6 +98,7 @@ int newopen_d(const char * file_path)
 
 long fcopyfile_d(int source_fd,int destination_fd)
 {
+	errno = 0;
     char buf[BUF_SIZE];
     long read_size,write_size,count_size = 0;
     lseek (source_fd,0,SEEK_SET);
