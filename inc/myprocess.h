@@ -22,7 +22,15 @@ extern void reset();
 /** Ensure that only one program runs at the same time according to the PID file */
 extern void check_running();
 
+/**
+ * Returns the bool value about you have root permission and record syslog */
+extern bool check_permission(const char * msg);
+
 /** Register signal processing function */
 extern void sig_reg();
+
+/**
+ * Processing Runtime Parameters */
+extern void dealWithArgs(int argc,const char * argv[]);
 
 #endif //__MYDAEMON_H
