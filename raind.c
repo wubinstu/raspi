@@ -49,6 +49,8 @@ jmp_buf myjmp;
 int main(int argc,const char * argv[])
 {
 
+	// init wiringPi lib
+	initPi();
 	// Check Runtime parameters
 	dealWithArgs (argc,argv);
 
@@ -62,8 +64,6 @@ int main(int argc,const char * argv[])
 	}
 	if(mode_daemon)
 		daemonize (PROJECT_NAME);
-	// init wiringPi lib
-	initPi();
 	// Set up an archive point
 	int jmp_rtn = setjmp(myjmp);
 	// Register signal processing function

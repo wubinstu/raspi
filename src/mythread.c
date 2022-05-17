@@ -220,7 +220,7 @@ _Noreturn void * sendData(int led)
 {
 	char status[4];
 	ssize_t read_len,write_len;
-	int sleep_time = co.interval;
+	int sleep_time;
 	while (true)
 	{
 		sleep_time = co.interval;
@@ -260,7 +260,7 @@ _Noreturn void * sendData(int led)
 //			perr_d(true,LOG_NOTICE,"Server closed, wait for %d secs",sleep_time);
 //			// reset();
 //		}
-		else if(read_len == -1)
+		if(read_len == -1)
 		{
 			sleep_time = co.interval * 5;
 			perr_d (true,LOG_ERR,"NetWork Error! Service Will reset in %d secs",sleep_time);
