@@ -7,7 +7,7 @@ set(CMAKE_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(CMAKE_INSTALL_CONF_DIR ${CMAKE_INSTALL_PREFIX}/etc)
 configure_file(config.h.in ${CMAKE_SOURCE_DIR}/inc/cmake_conf.h)
 
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -82,7 +82,7 @@ install(TARGETS raind DESTINATION bin)
 install(FILES raind.service DESTINATION ${systemdUnit})
 
 
-#message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精'")
+message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精'")
 message(STATUS "Project Name = ${CMAKE_PROJECT_NAME}")
 message(STATUS "Project Version = ${CMAKE_PROJECT_VERSION}")
 message(STATUS "Project Build Type = ${CMAKE_BUILD_TYPE}")

@@ -54,3 +54,4 @@ dkms.conf
 
 #self defined rules
 build
+.vscode

@@ -11,9 +11,9 @@ confOpt co;
 
 /// server fd
 int serv_fd = -1;
-SSL * ssl_serv_fd = NULL;
+SSL* ssl_serv_fd = NULL;
 /// certificate
-SSL_CTX * ctx = NULL;
+SSL_CTX* ctx = NULL;
 
 /// runtime mode
 bool mode_daemon = false;
@@ -46,71 +46,71 @@ jmp_buf myjmp;
 // 1. [SOLVED] longjmp thread undefined
 // 2. [WAITING] segmentation fault when exit
 
-int main(int argc,const char * argv[])
+int main (int argc, const char* argv[])
 {
 
 	// init wiringPi lib
-	initPi();
+	initPi ();
 	// Check Runtime parameters
-	dealWithArgs (argc,argv);
+	dealWithArgs (argc, argv);
 
-	if(mode_strict)
+	if (mode_strict)
 	{
 		// Check whether you have root privileges
-		if(!check_permission ("To create pid file"))
+		if (!check_permission ("To create pid file"))
 			return -1;
 		// Ensure that only one program runs at the same time according to the PID file
-		check_running();
+		check_running ();
 	}
-	if(mode_daemon)
+	if (mode_daemon)
 		daemonize (PROJECT_NAME);
 	// Set up an archive point
-	int jmp_rtn = setjmp(myjmp);
+	int jmp_rtn = setjmp (myjmp);
 	// Register signal processing function
-	sig_reg();
+	sig_reg ();
 	// Read configuration file to global variable
-	conf2var();
-	
-	if(mode_strict)
+	conf2var ();
+
+	if (mode_strict)
 	{
 		int flag;
-		ctx = initSSL(client);
-		if(ctx == NULL) my_exit();
-		flag = loadCA (ctx,co.CAfile);
-		if(!flag) my_exit();
-		if(co.checkMe)
+		ctx = initSSL (client);
+		if (ctx == NULL) my_exit ();
+		flag = loadCA (ctx, co.CAfile);
+		if (!flag) my_exit ();
+		if (co.checkMe)
 		{
-			flag = loadCert (ctx,co.UCert);
-			if(!flag) my_exit();
-			
-			flag = loadKey (ctx,co.UKey);
-			if(!flag) my_exit();
-			
+			flag = loadCert (ctx, co.UCert);
+			if (!flag) my_exit ();
+
+			flag = loadKey (ctx, co.UKey);
+			if (!flag) my_exit ();
+
 			flag = checkKey (ctx);
-			if(!flag) my_exit();
+			if (!flag) my_exit ();
 		}
 	}
 
 	// Trying to connect to the server
-	int con_rtn = tryconnect(LED_RED);
-	if(con_rtn == -1)
+	int con_rtn = tryconnect (LED_RED);
+	if (con_rtn == -1)
 	{
-		perr_d (true,LOG_ERR,"Maximum number of reconnections exceeded");
-		my_exit();
+		perr_d (true, LOG_ERR, "Maximum number of reconnections exceeded");
+		my_exit ();
 	}
 
-	
-	if(mode_strict)
+
+	if (mode_strict)
 	{
-		ssl_serv_fd = SSL_fd (ctx,serv_fd);
-		if(ssl_serv_fd == NULL) my_exit();
+		ssl_serv_fd = SSL_fd (ctx, serv_fd);
+		if (ssl_serv_fd == NULL) my_exit ();
 		int SSL_handShake = SSL_connect (ssl_serv_fd);
 		if (SSL_handShake == -1)
 		{
-			perr_d (true,LOG_ERR,"Server authentication failed, connection disconnected");
-			my_exit();
+			perr_d (true, LOG_ERR, "Server authentication failed, connection disconnected");
+			my_exit ();
 		}
-		if(co.checkMe)
+		if (co.checkMe)
 		{
 			printf ("Self Cert:\n");
 			showSelfCert (ssl_serv_fd);
@@ -118,10 +118,10 @@ int main(int argc,const char * argv[])
 		printf ("Peer Cert:\n");
 		showPeerCert (ssl_serv_fd);
 	}
-	
-	if(jmp_rtn != RESET)
+
+	if (jmp_rtn != RESET)
 		pthread_create (&thread_cheker, NULL, check_monit, NULL);
-	
+
 	sendData (LED_YEL);
-	
+
 }
