@@ -28,10 +28,10 @@
 #define     CACHE_SIZE          50
 
 /** Returns the signal name according to the signal value */
-extern char * log_prefix(int logLevel);
+extern char *log_prefix (int logLevel);
 
 /** If the conditions are met, the message is written to the system log,and the device is daemon */
-extern void perr_d(bool condition,int logLevel,const char * message,...);
+extern void perr_d (bool condition, int logLevel, const char *message, ...);
 
 
 #endif
