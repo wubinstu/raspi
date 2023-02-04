@@ -1,19 +1,8 @@
 
-#ifndef __MSGD_H_
-#define __MSGD_H_
+#ifndef __LOG_H_
+#define __LOG_H_
 
-#include "head.h"
-
-
-// static const char *     EMERE       =       "[  EMERE  ] ";
-// static const char *     ALERT       =       "[  ALERT  ] ";
-// static const char *     CRIT        =       "[  CRITI  ] ";
-// static const char *     ERR         =       "[  ERROR  ] ";
-// static const char *     WARNING     =       "[ WARNING ] ";
-// static const char *     NOTICE      =       "[  NOTIC  ] ";
-// static const char *     INFO        =       "[  INFOS  ] ";
-// static const char *     DEBUG       =       "[  DEBUG  ] ";
-// static const char *     UNKNOWN     =       "[ UNKNOWN ] ";
+#include "stdbool.h"
 
 #define     EMERE              "[  EMERE  ] ";
 #define     ALERT              "[  ALERT  ] ";
@@ -34,4 +23,4 @@ extern char *log_prefix (int logLevel);
 extern void perr_d (bool condition, int logLevel, const char *message, ...);
 
 
-#endif
+#endif//__LOG_H_

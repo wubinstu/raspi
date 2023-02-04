@@ -9,8 +9,7 @@
 #ifndef __CONF_H_
 #define __CONF_H_
 
-#include "head.h"
-#include "mylink.h"
+#include "linklist.h"
 
 /**
  * Read the configuration file and write the content to the linked list,
@@ -18,10 +17,13 @@
  * If the reading fails, return null */
 extern LNode readconf (const char *file_path);
 
+
 /**
  * Regardless of whether the file exists or not and whether the content of the file exists,
  * overwrite creates a default configuration file */
-extern void defaultconf (const char *file_path);
+extern void defaultConfServ (const char *file_path);
+
+extern void defaultConfClnt (const char *file_path);
 
 /**
  * Check whether the file exists.

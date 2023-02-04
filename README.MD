@@ -1,4 +1,5 @@
 ### 原创声明
+
 ```text
 本工程是本人由于兴趣在大学二,三年级学习了《TCP/IP网络编程》的全部章节
 和《UNIX环境高级编程》的部分章节 (第1~4章,第7~11章和第13章)
@@ -6,23 +7,26 @@
 ```
 
 ### 简介
+
 ```text
 纯C语言的Unix学习型项目,学习C,网络编程和内核编程的童鞋不要错过哦~
 编写于树莓派4b,基于wiringPi库的数据实时检测采集并上传指定服务器的客户端
 现实意义:将树莓派放置于停车位附近,根据距离判定车位是否空闲
 
-服务器端还在开发中...
+服务器端还在开发中(预计23年06月前完成)...
 但我们也准备了一个简单的基于select()的并发测试服务器: test_server.c
 ```
 
 ### 没有树莓派?
+
 ```text
 这意味着您可能无法使用wiringPi库,不过我们贴心地准备了模拟器模式
-它们的区别仅仅在于使用模拟器模式后raspi.c文件中原本直接操作物理引脚电平获取数据的方式更改为获取随机数,没有其他影响
-模式切换方式:找到工作目录下的 CMakeLists.txt 文件并打开,在大约第4行的位置找到 "set(SIMULATOR false)",将false修改为true即可
+它们的区别仅仅在于使用模拟器模式后raspi_drive.c文件中原本直接操作物理引脚电平获取数据的方式更改为获取随机数,没有其他影响
+模式切换方式: 在CMakeLists.txt文件中找到set(SIMULATOR false),将false更改为true即可
 ```
 
 ### 安装
+
 ```shell
 # 使用了cmake工具,操作极其简单
 # 如果没有cmake工具或者wiringPi库,自行百度安装
@@ -38,7 +42,9 @@ $ cd raspi && cmake -B build && cmake --build build
 # 安装(可选)
 $ sudo cmake --install build || make install
 ```
+
 ### 使用
+
 ```text
 [遇到问题] 在使用过程中,最有可能需要修改/查看以下文件:
 CMakeLists.txt(修改编译模式)
@@ -54,6 +60,7 @@ keys/readme.txt(密钥和证书生成步骤)
 
 [注意] 请保证客户端和服务器在同一模式运行(不能一个普通模式,另外一个严格模式)
 ```
+
 ```shell
 # 调试模式
 $ cd <你的构建目录>
@@ -84,7 +91,9 @@ $ sudo systemctl disable raind
 # 查看状态和部分日志
 $ sudo systemctl status raind
 ```
+
 ### 配置文件
+
 ```shell
 # 注意:首次启动时会自动创建默认的配置文件并退出
 # 编辑配置文件
@@ -98,11 +107,14 @@ ServAddr = 127.0.0.1
 # 指定服务器端口(必须指定)
 ServPort = 1234
 
+# 客户端身份鉴别,此选项仅在严格模式有效,用于解释客户端如何和服务器连接
+# 0: 不加载任何安全文件,客户端允许以ssl连接到任何特定服务器,即使服务器证书有误
+# 1: 仅加载CA证书,这使得客户端可以鉴别服务器身份,客户端可以信任服务器的合法性
+# 2: 加载CA证书,客户端用户证书,客户端私密钥,仅当服务器要求验证客户端的合法性时指定,当然服务器不要求时指定了也无影响
+SSLMode = 0
+
 # 指定CA根证书(用以验证服务器身份)
 CAfile = /home/pi/keys/ca.crt
-
-# 仅当服务器验证客户端时设置为true(默认false)
-CheckMe = false
 
 # 指定用户证书(仅当 CheckMe = true)
 UCert = /home/pi/keys/client.crt
@@ -121,6 +133,7 @@ FRecAtps = 7
 ```
 
 ### 常见问题
+
 ```text
 编译时找不到ssl.h,wringPi.h
     这是缺少了相关库,安装openssl-dev库,
@@ -166,23 +179,24 @@ FRecAtps = 7
 ```
 
 ## 工程结构
+
 ### 目标依赖关系:
+
 *标识:弃用
+
 ```text
     依赖(target) <- 被依赖
-    conf        <- arr filed mylink
-   *file        <- msg
-    file(d)     <- msg(d)
-    mylink      <- types
-    myprocess   <- msgd raspi
-   *mysock      <- msg
-    myssl       <- crypto msgd ssl
-    mythread    <- conf msgd myprocess mysockd raspi types
-    raspi       <- msgd wiringPi
+    conf        <- arr filed linklist
+    filed       <- log
+    linklist    <- types
+    load_clean  <- log raspi_drive
+    rssl        <- crypto(external) log rssl
+    client_run  <- conf log load_clean socket_fd raspi_drive types
+    raspi_drive <- log wiringPi(external)
 ```
 
-
 ### 库函数清单:
+
 ```text
     arr:
         isNotes,isEmptyL,isContainC
@@ -190,7 +204,7 @@ FRecAtps = 7
         subString,upperConversion,lowerConversion
 
     conf:
-        readconf,defaultconf,checkconf
+        readconf,defaultConfClnt,checkconf
         checkread
 
    *file:
@@ -213,9 +227,9 @@ FRecAtps = 7
         DeleteElemAtLinkList,DisplayLinkList,ListToArry
         
     myprocess:
-        daemonize,my_exit,reset
-        check_running,check_permission,sig_reg
-        dealWithArgs
+        daemonize,exitCleanupClnt,resetClnt
+        checkPidFile,check_permission,sig_register_client
+        dealWithArgsClnt
 
    *mysock:
         NameToHost,creatServSock,connectServ
@@ -231,7 +245,7 @@ FRecAtps = 7
         showSelfCert,SSL_fd
         
     mythread:
-        conf2var,tryconnect,check_monit
+        conf2var,tryConnect,checkMonit
         sendData
 
     raspi:
