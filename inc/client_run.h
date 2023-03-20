@@ -7,13 +7,15 @@
 
 #include "head.h"
 
-/** Trying to connect to the server */
+/** Trying to connect to the server
+ * exponential backoff:[1,MAXSLEEP(128)]secs
+ * set server socket to no blocking and enable nagle */
 extern int tryConnect (int led);
 
 /** [NO RETURN] Continuous monitoring and data acquisition */
-_Noreturn extern void *checkMonit (void *arg);
+extern void checkMonit ();
 
 /** [NO RETURN] Continuously send data to the server */
-extern _Noreturn void *sendData (void *led);
+extern void sendData (int led);
 
 #endif //__CLIENT_RUN_H_

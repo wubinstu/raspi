@@ -13,7 +13,7 @@
 #endif
 
 /** init wiringPi lib
- * @return 0 for sucess,-1 for failed*/
+ * @return 0 for success,-1 for failed*/
 extern int initPi ();
 
 /** read cpu temperature and return it */
@@ -33,7 +33,7 @@ extern float disMeasure (int Trans, int Receive);
 extern bool TEST_IN (int LINE);
 
 /** Detect temperature and humidity and write variables */
-extern bool readSensorData (int pinNum, float *Humidity, float *Temperature);
+extern bool readSensorData (int pinNum, float * Humidity, float * Temperature);
 
 /** Write the specified number into the nixie tube, with the range of 0 ~ 9999 */
 extern bool screen (int num, int dataPin, int clockPin);

@@ -1,15 +1,15 @@
 [Unit]
-Description=rain client daemon
+Description=rain server daemon
 After=syslog.target
 Wants=network.target
 
 
 [Service]
 Type=forking
-ExecStart=/usr/local/bin/rain_client
+ExecStart=/usr/local/bin/rain_server
 ExecStop=/bin/kill -INT $MAINPID
 ExecReload=/bin/kill -HUP $MAINPID
-PIDFile=/var/run/rain_client.pid
+PIDFile=/var/run/rain_server.pid
 KillMode=control-group
 
 [Install]

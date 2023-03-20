@@ -11,7 +11,7 @@
 #include "cmake_conf.h"
 
 #define PROJECT_SERVER_NAME PROJECT_NAME"sd"
-#define PROJECT_CLIENT_NAME PROJECT_NAME"d"
+#define PROJECT_CLIENT_NAME PROJECT_NAME"cd"
 
 /** wiring PI Pin Numbers
  * 树莓派4b上的GPIO针脚定义,数字是wiringPi编码,非BCM编码 */
@@ -20,12 +20,13 @@
 #define DISTANCE_E      5
 //#define OLED_DATA       26
 //#define OLED_CLOCK      6
-#define LED_RED         27  // get tcp connetion
-#define LED_GRE         28  // meet distance confition
+#define LED_RED         27  // get tcp connection
+#define LED_GRE         28  // meet distance condition
 #define LED_YEL         29  // constant light indicates environmental bad, flashing indicates send a tcp package
 
+#define MAXSLEEP        128
 #define BUF_SIZE        1024
-#define RESET           1
+
 
 /** 定义树莓派CPU最大温湿度,越过此值定义为"不健康的运行状态"
  * 这个设置并没有太大意义,即使是炎热的夏天树莓派温度也不会轻易达到60以上
@@ -34,59 +35,53 @@
 #define MAX_ENV_HUMIDI  75
 
 /** 创建文件(夹)时默认使用的权限组 */
-#define    FILE_MODE    (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
-#define    DIR_MODE    (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH)
+#define    FILE_MODE        (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+#define    DIR_MODE         (FILE_MODE | S_IXUSR | S_IXGRP | S_IXOTH)
 
 /** 定义配置文件,PID锁文件,温度监控文件存放位置 */
-#define CONF_FILE_CLIENT   CONF_DIR"/rain_client.conf"
-#define CONF_FILE_SERVER   CONF_DIR"/rain_server.conf"
-#define PID_FILE_CLIENT   "/var/run/rain_client.pid"
-#define PID_FILE_SERVER   "/var/run/rain_server.pid"
-#define TEMP_PATH "/sys/class/thermal/thermal_zone0/temp"
+#define CONF_FILE_CLIENT    CONF_DIR"/rain_client.conf"
+#define CONF_FILE_SERVER    CONF_DIR"/rain_server.conf"
+#define PID_FILE_CLIENT     "/var/run/rain_client.pid"
+#define PID_FILE_SERVER     "/var/run/rain_server.pid"
+#define TEMP_PATH           "/sys/class/thermal/thermal_zone0/temp"
 
-
-/** debug mode,if the value is true, disable daemon and print runtime massage to stdout.
- * and priority is higher than global variable mode_daemon */
-extern int DEBUGMODE;
 
 /** to let some function know it's works for server/client */
 extern enum ServClnt mode_serv_clnt;
 /** to let server and client know the way to ssl connect */
 extern enum ClntSSL mode_ssl_client;
+/** to let client and server know the way to ssl connect */
+extern enum ServSSL mode_ssl_server;
 
 extern int filed_logLevel;
 extern int rssl_logLevel;
 extern int socket_fd_logLevel;
 
 /** client's configuration file options */
-extern confOptClnt file_client_config;
+extern ConfOptClnt config_client;
+/** server's configuration file options */
+extern ConfOptServ config_server;
 /** a structural with CPU/environmental temperature,ultrasonic distance,etc */
 extern RaspiMonitData raspi_monit_data;
-/** a mutex lock for global variable raspi_monit_data */
-extern pthread_mutex_t mutex_monit_data;
-/** a thread id for client raspi data checker */
-extern pthread_t thread_client_data_checker;
-/** a thread id for client raspi data sender */
-extern pthread_t thread_client_data_sender;
+
 
 /** pid file fd */
 extern int pid_file_fd;
 /** server socket fd */
 extern int serv_fd;
 /** server socket ssl fd */
-extern SSL *ssl_serv_fd;
-/** a ssl ctx handler */
-extern SSL_CTX *ctx;
+extern SSL * ssl_serv_fd;
+/** a ssl ctx_client_to_server handler */
+extern SSL_CTX * ctx_client_to_server;
 
 /** check pid file and enable ssl connection */
 extern bool mode_strict;
-/** enter daemon mode, It's INVALID when DEBUGMODE on */
-extern bool mode_daemon;
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;
+extern jmp_buf jmp_server_rest;
 
-extern void set_serv_clnt (enum ServClnt m);
+extern void setServClnt (enum ServClnt m);
 
 extern void set_ssl_client (enum ClntSSL m);
 

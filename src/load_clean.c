@@ -12,7 +12,7 @@
 #include "raspi_drive.h"
 
 
-void daemonize (const char *cmd)
+void daemonize (const char * cmd)
 {
     int i, fd0, fd1, fd2;
     pid_t pid;
@@ -27,16 +27,16 @@ void daemonize (const char *cmd)
     /**
      * Get maximum number of file descriptors
      * 获取文件描述符最大值 */
-    if (getrlimit (RLIMIT_NOFILE, &rl) < 0)
-        perr_d (true, LOG_NOTICE,
-                "%s[daemonize]: can not get file limit", cmd);
+    if (getrlimit (RLIMIT_NOFILE, & rl) < 0)
+        perr (true, LOG_NOTICE,
+              "%s[daemonize]: can not get file limit", cmd);
 
     /**
      * Become a session leader to lose controlling TTY
      * fork 后只保留子进程,这样可以脱离控制终端,并且为创建会话做准备 */
     if ((pid = fork ()) < 0)
-        perr_d (true, LOG_ERR,
-                "%s[daemonize]: cant not fork", cmd);
+        perr (true, LOG_ERR,
+              "%s[daemonize]: cant not fork", cmd);
     else if (pid != 0)
         exit (0);
 
@@ -45,18 +45,18 @@ void daemonize (const char *cmd)
     /**
      * 约定成俗的规则,守护进程一般不需要处理SIGHUP, 当然有些软件使用该信号来"重启(配置文件修改时)"软件 */
     sa.sa_handler = SIG_IGN;
-    sigemptyset (&sa.sa_mask);
+    sigemptyset (& sa.sa_mask);
     sa.sa_flags = 0;
-    if (sigaction (SIGHUP, &sa, NULL) < 0)
-        perr_d (true, LOG_NOTICE,
-                "%s[daemonize]: can not ignore SIGHUP", cmd);
+    if (sigaction (SIGHUP, & sa, NULL) < 0)
+        perr (true, LOG_NOTICE,
+              "%s[daemonize]: can not ignore SIGHUP", cmd);
 
     /**
      * Ensure future opens won't allocate controlling TTYs.
      * 再一次 fork, 还是只保留子进程,这样子进程不是会话首进程,那么它永远也无法获取控制终端 */
     if ((pid = fork ()) < 0)
-        perr_d (true, LOG_ERR,
-                "%s[daemonize]: can not fork", cmd);
+        perr (true, LOG_ERR,
+              "%s[daemonize]: can not fork", cmd);
     else if (pid != 0)
         exit (0);
 
@@ -65,8 +65,8 @@ void daemonize (const char *cmd)
      * we won't prevent file system from being unmounted
      * 将当前工作目录更改为根目录,这样就不会阻止卸载文件系统 */
     if (chdir ("/") < 0)
-        perr_d (true, LOG_ERR,
-                "%s[daemonize]: can not change directory to /", cmd);
+        perr (true, LOG_ERR,
+              "%s[daemonize]: can not change directory to /", cmd);
 
     /**
      * close all open file descriptors
@@ -88,48 +88,277 @@ void daemonize (const char *cmd)
      * Initialize the log file */
     if (fd0 != 0 || fd1 != 1 || fd2 != 2)
     {
-        perr_d (true, LOG_NOTICE,
-                "%s[daemonize]: unexpected file descriptors %d %d %d",
-                cmd, fd0, fd1, fd2);
+        perr (true, LOG_NOTICE,
+              "%s[daemonize]: unexpected file descriptors %d %d %d",
+              cmd, fd0, fd1, fd2);
         exit (1);
     }
-    perr_d (true, LOG_INFO,
-            "%s[daemonize]: process successfully entered daemon mode", cmd);
+    perr (true, LOG_INFO,
+          "%s[daemonize]: process successfully entered daemon mode,"
+          "pid = %d,ppid = %d,pgid = %d,sid = %d",
+          cmd, getpid (), getppid (), getpgrp (), getsid (getpid ()));
 }
 
-void dealWithArgsServ (int argc, const char *argv[])
-{}
-
-void dealWithArgsClnt (int argc, const char *argv[])
+void runTimeArgsServ (int argc, const char * argv[])
 {
-    errno = 0;
+    int errno_save = errno;
+    perr (true, LOG_INFO, "Reading runTime Arguments");
+    char * args = calloc (1, 30);
+    char * value = calloc (1, 30);
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp (argv[i], "--daemon") == 0)
+        memset (args, 0, 30);
+        memset (value, 0, 30);
+        strcpy (args, argv[i]);
+        if (argv[i + 1] != NULL)
+            strcpy (value, argv[i + 1]);
+        lowerConversion (args);
+
+        if (strcmp (args, "--bindaddr") == 0)
         {
-            mode_daemon = true;
+            config_server.bindIp = inet_addr (NameToHost (value));
+            if (config_server.bindIp == INADDR_NONE)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --bindaddr = %s,use localhost instead",
+                      value);
+                config_server.bindIp = INADDR_ANY;
+            }
             continue;
-        } else if (strcmp (argv[i], "--strict") == 0)
+        } else if (strcmp (args, "--bindport") == 0)
         {
-            mode_strict = true;
+            config_server.bindPort = (unsigned short)
+                    strtol (value, NULL, 10);
+            if (config_server.bindPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --bindport = %s,use default 9190 instead",
+                      value);
+                config_server.bindPort = 9190;
+            }
             continue;
-        } else if (strcmp (argv[i], "--clean") == 0)
+        } else if (strcmp (args, "--sslmode") == 0)
         {
-            if (!check_permission ("to delete PID_FILE"))
+            if (strcmp (value, "default") == 0)
+                mode_ssl_server = server_ssl_enable;
+            else if (strcmp (value, "disable") == 0)
+                mode_ssl_server = server_ssl_disable;
+            else
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default instead",
+                      args, value);
+                mode_ssl_server = server_ssl_enable;
+            }
+            continue;
+        } else if (strcmp (args, "--cafile") == 0)
+        {
+            strcpy (config_server.caFile, value);
+            continue;
+        } else if (strcmp (args, "--servcert") == 0)
+        {
+            strcpy (config_server.servCert, value);
+            continue;
+        } else if (strcmp (args, "--servkey") == 0)
+        {
+            strcpy (config_server.servKey, value);
+            continue;
+        } else if (strcmp (args, "--pidfile") == 0)
+        {
+            strcpy (config_server.pidFile, value);
+            continue;
+        } else if (strcmp (args, "--daemon") == 0)
+        {
+            if (strcmp (value, "default") == 0)
+                config_server.modeDaemon = true;
+            else if (strcmp (value, "disable") == 0)
+                config_server.modeDaemon = false;
+            else
+            {
+                perr (true, LOG_NOTICE,
+                      "Invalid Arguments --daemon = %s,use default instead",
+                      value);
+                config_server.modeDaemon = true;
+            }
+            continue;
+        } else if (strcmp (args, "--clean-pid") == 0)
+        {
+            char * pid_file;
+            if (strcmp (config_server.pidFile, "default") == 0)
+                pid_file = PID_FILE_SERVER;
+            else if (strcmp (config_server.pidFile, "disable") == 0)
+                pid_file = NULL;
+            else pid_file = config_server.pidFile;
+            if (!checkRootPermission ("to delete PID_FILE"))
                 exit (-1);
-            printf ("%s will be deleted\n", PID_FILE_CLIENT);
-            unlink (PID_FILE_CLIENT);
+            if (pid_file != NULL)
+            {
+                printf ("%s will be deleted\n", pid_file);
+                unlink (pid_file);
+            } else printf ("PIDFILE is already disable\n");
             exit (0);
-        } else if (strcmp (argv[i], "--default-conf") == 0)
+        } else if (strcmp (args, "--default-conf") == 0)
+        {
+            printf ("resetServ %s\n", CONF_FILE_SERVER);
+            unlink (CONF_FILE_SERVER);
+            defaultConfClnt (CONF_FILE_SERVER);
+            exit (0);
+        } else if (strcmp (args, "--settings") == 0)
+        {
+            if (!checkRootPermission ("or it will open in read-only mode"
+                                      "(Press Any Key To Continue)"))
+                getchar ();
+            execlp ("vim", "vim", CONF_FILE_SERVER, NULL);
+            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
+            sleep (3);
+            execlp ("vi", "vi", CONF_FILE_SERVER, NULL);
+            printf ("can not open conf file with vi too! "
+                    "please operate manually (3 secs...)\n");
+            sleep (3);
+            exit (-1);
+        } else if (strcmp (args, "--help") == 0)
+        {
+            printf ("Usage:  "
+                    "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
+                    "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
+                    "[--sslmode] [disable,default]\t\t\t\tspecify server ip bind port\n\t"
+                    "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
+                    "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
+                    "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
+                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
+            exit (0);
+        } else
+        {
+            if (args[0] != '-')
+                continue;
+            printf ("Unknown Parameter %s, "
+                    "Use \"--help\" for help information\n", args);
+            exit (-1);
+        }
+    }
+    free (args);
+    free (value);
+    perr (true, LOG_INFO,
+          "config Read Done! BindAddr = %s, "
+          "bindPort = %d, "
+          "SSLMode = %s, "
+          "CAFILE = %s, "
+          "SERVCERT = %s, "
+          "SERVKEY = %s, "
+          "PIDFILE = %s, "
+          "DAEMON = %s ",
+          inet_ntoa ((struct in_addr) {config_server.bindIp}),
+          config_server.bindPort,
+          config_server.modeSSL ? "default" : "disable",
+          config_server.caFile,
+          config_server.servCert,
+          config_server.servKey,
+          config_server.pidFile,
+          config_server.modeDaemon ? "default" : "disable");
+    errno = errno_save;
+}
+
+void runTimeArgsClnt (int argc, const char * argv[])
+{
+    int errno_save = errno;
+    perr (true, LOG_INFO, "Reading runTime Arguments");
+    char * args = calloc (1, 30);
+    char * value = calloc (1, 30);
+    for (int i = 1; i < argc; i++)
+    {
+        memset (args, 0, 30);
+        memset (value, 0, 30);
+        strcpy (args, argv[i]);
+        if (argv[i + 1] != NULL)
+            strcpy (value, argv[i + 1]);
+        lowerConversion (args);
+
+        if (strcmp (args, "--servaddr") == 0)
+        {
+            config_client.servIp = inet_addr (NameToHost (value));
+            if (config_client.servIp == INADDR_NONE)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --servaddr = %s,use localhost instead",
+                      value);
+                config_client.servIp = inet_addr ("127.0.0.1");
+            }
+            continue;
+        } else if (strcmp (args, "--servport") == 0)
+        {
+            config_client.servPort = (unsigned short)
+                    strtol (value, NULL, 10);
+            if (config_client.servPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --servport = %s,use default 9190 instead",
+                      value);
+                config_client.servPort = 9190;
+            }
+            continue;
+        } else if (strcmp (args, "--interval") == 0)
+        {
+            config_client.interval = (int) strtol (value, NULL, 10);
+            if (config_client.interval == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments = %s,use default 5 instead",
+                      value);
+                config_client.interval = 5;
+            }
+            continue;
+        } else if (strcmp (args, "--cafile") == 0)
+        {
+            strcpy (config_client.caFile, value);
+            continue;
+        } else if (strcmp (args, "--pidfile") == 0)
+        {
+            strcpy (config_client.pidFile, value);
+            continue;
+        } else if (strcmp (args, "--daemon") == 0)
+        {
+            if (strcmp (value, "default") == 0)
+                config_client.modeDaemon = true;
+            else if (strcmp (value, "disable") == 0)
+                config_client.modeDaemon = false;
+            else
+            {
+                perr (true, LOG_NOTICE,
+                      "Invalid Arguments --daemon = %s,use default instead",
+                      value);
+                config_client.modeDaemon = true;
+            }
+            continue;
+        } else if (strcmp (args, "--clean-pid") == 0)
+        {
+            char * pid_file;
+            if (strcmp (config_client.pidFile, "default") == 0)
+                pid_file = PID_FILE_CLIENT;
+            else if (strcmp (config_client.pidFile, "disable") == 0)
+                pid_file = NULL;
+            else pid_file = config_client.pidFile;
+            if (!checkRootPermission ("to delete PID_FILE"))
+                exit (-1);
+            if (pid_file != NULL)
+            {
+                printf ("%s will be deleted\n", pid_file);
+                unlink (pid_file);
+            } else printf ("PIDFILE is already disable\n");
+            exit (0);
+        } else if (strcmp (args, "--default-conf") == 0)
         {
             printf ("resetClnt %s\n", CONF_FILE_CLIENT);
             unlink (CONF_FILE_CLIENT);
             defaultConfClnt (CONF_FILE_CLIENT);
             exit (0);
-        } else if (strcmp (argv[i], "--settings") == 0)
+        } else if (strcmp (args, "--settings") == 0)
         {
-            if (!check_permission
-                    ("or it will open in read-only mode(Press Any Key To Continue)"))
+            if (!checkRootPermission ("or it will open in read-only mode"
+                                      "(Press Any Key To Continue)"))
                 getchar ();
             execlp ("vim", "vim", CONF_FILE_CLIENT, NULL);
             printf ("vim editor not available,use vi editor instead (3 secs...)\n");
@@ -139,52 +368,96 @@ void dealWithArgsClnt (int argc, const char *argv[])
                     "please operate manually (3 secs...)\n");
             sleep (3);
             exit (-1);
-        } else if (strcmp (argv[i], "--help") == 0)
+        } else if (strcmp (args, "--help") == 0)
         {
             printf ("Usage:  "
-                    "[--daemon] \t Runing in daemon mode\n\t"
-                    "[--strict] \t Entering strict mode\n\t"
-                    "[--clean] \t Delete PID file\n\t"
-                    "[--default-conf] Create(Overwrite) default configuration file\n\t"
-                    "[--settings] \t Open(VIM editor) configuration file\n");
+                    "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
+                    "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
+                    "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
+                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
+                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
             exit (0);
         } else
         {
-            printf ("Unknown Parameter, Use \"--help\" for help information\n");
+            if (args[0] != '-')
+                continue;
+            printf ("Unknown Parameter %s, "
+                    "Use \"--help\" for help information\n", args);
             exit (-1);
         }
     }
-    printf ("daemonMode = %s,strictMode = %s\n",
-            mode_daemon ? "true" : "false", mode_strict ? "true" : "false");
+    free (args);
+    free (value);
+    perr (true, LOG_INFO,
+          "runTime Arguments Read Done! ServAddr = %s, "
+          "ServPort = %d, "
+          "Interval = %d, "
+          "CAFILE = %s, "
+          "PIDFILE = %s, "
+          "DAEMON = %s ",
+          inet_ntoa ((struct in_addr) {config_client.servIp}),
+          config_client.servPort,
+          config_client.interval,
+          config_client.caFile,
+          config_client.pidFile,
+          config_client.modeDaemon ? "default" : "disable");
+    errno = errno_save;
 }
 
-bool check_permission (const char *require_reason)
+void checkPidFileServ (char * pid_file)
 {
-    errno = 0;
-    bool flag = (geteuid () == 0);
-    perr_d (!flag, LOG_NOTICE,
-            "root permission are required: %s", require_reason);
-    return flag;
-}
-
-void checkPidFile ()
-{
-    errno = 0;
-    char *pid_file;
-    if (mode_serv_clnt == server)pid_file = PID_FILE_SERVER;
-    if (mode_serv_clnt == client)pid_file = PID_FILE_CLIENT;
-    if (access (PID_FILE_CLIENT, F_OK) == 0)
+    if (pid_file == NULL)return;
+    int errno_save = errno;
+    if (access (pid_file, F_OK) == 0)
     {
-        perr_d (true, LOG_ERR,
-                "service already running! stopped. "
-                "(If Not,Please type \"--clean\" to remove %s)",
-                PID_FILE_CLIENT);
+        perr (true, LOG_ERR,
+              "service already running! stopped. "
+              "(If Not,Please type \"--clean-pid\" to remove %s)",
+              pid_file);
+        exitCleanupServ ();
+    }
+    pid_file_fd = open (pid_file, O_CREAT | O_RDWR | O_TRUNC, FILE_MODE);
+    if (pid_file_fd < 0)
+    {
+        perr (true, LOG_ERR, "PID pid_file can NOT be created");
+        exitCleanupServ ();
+    }
+
+    struct flock fl;
+    fl.l_type = F_WRLCK;
+    fl.l_start = 0;
+    fl.l_whence = SEEK_SET;
+    fl.l_len = 0;
+    fcntl (pid_file_fd, F_SETLK, & fl);  // 一般都是建议性锁,这取决于文件系统的实现
+
+    char pid_string[16] = {0};
+    sprintf (pid_string, "%ld", (long) getpid ());
+    write (pid_file_fd, pid_string, strlen (pid_string));
+    fflush (NULL);
+    errno = errno_save;
+    // we do not close pid_file_fd, it will close at exit
+}
+
+void checkPidFileClnt (char * pid_file)
+{
+    if (pid_file == NULL)return;
+    int errno_save = errno;
+    if (access (pid_file, F_OK) == 0)
+    {
+        perr (true, LOG_ERR,
+              "service already running! stopped. "
+              "(If Not,Please type \"--clean-pid\" to remove %s)",
+              pid_file);
         exitCleanupClnt ();
     }
     pid_file_fd = open (pid_file, O_CREAT | O_RDWR | O_TRUNC, FILE_MODE);
     if (pid_file_fd < 0)
     {
-        perr_d (true, LOG_ERR, "PID pid_file can NOT be created");
+        perr (true, LOG_ERR, "PID pid_file can NOT be created");
         exitCleanupClnt ();
     }
 
@@ -193,179 +466,315 @@ void checkPidFile ()
     fl.l_start = 0;
     fl.l_whence = SEEK_SET;
     fl.l_len = 0;
-    fcntl (pid_file_fd, F_SETLK, &fl);
+    fcntl (pid_file_fd, F_SETLK, & fl);  // 一般都是建议性锁,这取决于文件系统的实现
 
     char pid_string[16] = {0};
     sprintf (pid_string, "%ld", (long) getpid ());
     write (pid_file_fd, pid_string, strlen (pid_string));
     fflush (NULL);
+    errno = errno_save;
     // we do not close pid_file_fd, it will close at exit
 }
 
-void conf2var ()
+void confToVarServ ()
 {
-    errno = 0;
-    perr_d (true, LOG_INFO, "Reading conf: %s", CONF_FILE_CLIENT);
-    if (!checkconf (CONF_FILE_CLIENT))
-        exitCleanupClnt ();
-    LNode conf = readconf (CONF_FILE_CLIENT);
-    checkread (conf);
+    int errno_save = errno;
+    perr (true, LOG_INFO, "Reading conf: %s", CONF_FILE_SERVER);
+    if (!checkConf (CONF_FILE_SERVER))
+        defaultConfServ (CONF_FILE_SERVER),
+                exitCleanupServ ();
+    LNode conf = readConf (CONF_FILE_SERVER);
+    checkRead (conf);
 
     KeyValuePair e[LengthOfLinkList (conf)];
     int len = ListToArry (conf, e);
-    DestoryLinkList (&conf);
+    DestroyLinkList (& conf);
+
+
+    for (int i = 0; i < len; i++)
+    {
+        if (strcmp (e[i].name, "BINDADDR") == 0)
+        {
+            config_server.bindIp = inet_addr (NameToHost (e[i].value));
+            if (config_server.bindIp == INADDR_NONE)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use localhost instead",
+                      e[i].name, e[i].value);
+                config_server.bindIp = INADDR_ANY;
+            }
+            continue;
+        } else if (strcmp (e[i].name, "BINDPORT") == 0)
+        {
+            config_server.bindPort = (unsigned short)
+                    strtol (e[i].value, NULL, 10);
+            if (config_server.bindPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default 9190 instead",
+                      e[i].name, e[i].value);
+                config_server.bindPort = 9190;
+            }
+            continue;
+        } else if (strcmp (e[i].name, "SSLMODE") == 0)
+        {
+            if (strcmp (e[i].value, "default") == 0)
+                mode_ssl_server = server_ssl_enable;
+            else if (strcmp (e[i].value, "disable") == 0)
+                mode_ssl_server = server_ssl_disable;
+            else
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default instead",
+                      e[i].name, e[i].value);
+                mode_ssl_server = server_ssl_enable;
+            }
+            continue;
+        } else if (strcmp (e[i].name, "CAFILE") == 0)
+        {
+            strcpy (config_server.caFile, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "SERVCERT") == 0)
+        {
+            strcpy (config_server.servCert, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "SERVKEY") == 0)
+        {
+            strcpy (config_server.servKey, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "PIDFILE") == 0)
+        {
+            strcpy (config_server.pidFile, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "DAEMON") == 0)
+        {
+            if (strcmp (e[i].value, "default") == 0)
+                config_server.modeDaemon = true;
+            else if (strcmp (e[i].value, "disable") == 0)
+                config_server.modeDaemon = false;
+            else
+            {
+                perr (true, LOG_NOTICE,
+                      "Invalid value option %s=%s,use default instead",
+                      e[i].name, e[i].value);
+                config_server.modeDaemon = true;
+            }
+            continue;
+        } else
+            perr (true, LOG_NOTICE,
+                  "Unknown configure option %s=%s", e[i].name, e[i].value);
+    }
+    perr (true, LOG_INFO,
+          "config Read Done! BindAddr = %s, "
+          "BindPort = %d, "
+          "SSLMode = %s, "
+          "CAFILE = %s, "
+          "SERVCERT = %s, "
+          "SERVKEY = %s, "
+          "PIDFILE = %s, "
+          "DAEMON = %s ",
+          inet_ntoa ((struct in_addr) {config_server.bindIp}),
+          config_server.bindPort,
+          config_server.modeSSL ? "default" : "disable",
+          config_server.caFile,
+          config_server.servCert,
+          config_server.servKey,
+          config_server.pidFile,
+          config_server.modeDaemon ? "default" : "disable");
+    errno = errno_save;
+}
+
+void confToVarClnt ()
+{
+    int errno_save = errno;
+    perr (true, LOG_INFO, "Reading conf: %s", CONF_FILE_CLIENT);
+    if (!checkConf (CONF_FILE_CLIENT))
+        defaultConfClnt (CONF_FILE_CLIENT),
+                exitCleanupClnt ();
+    LNode conf = readConf (CONF_FILE_CLIENT);
+    checkRead (conf);
+
+    KeyValuePair e[LengthOfLinkList (conf)];
+    int len = ListToArry (conf, e);
+    DestroyLinkList (& conf);
 
 
     for (int i = 0; i < len; i++)
     {
         if (strcmp (e[i].name, "SERVADDR") == 0)
         {
-            file_client_config.serv_ip = inet_addr (NameToHost_d (e[i].value));
+            config_client.servIp = inet_addr (NameToHost (e[i].value));
+            if (config_client.servIp == INADDR_NONE)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use localhost instead",
+                      e[i].name, e[i].value);
+                config_client.servIp = inet_addr ("127.0.0.1");
+            }
             continue;
         } else if (strcmp (e[i].name, "SERVPORT") == 0)
         {
-            file_client_config.serv_port = (unsigned short)
+            config_client.servPort = (unsigned short)
                     strtol (e[i].value, NULL, 10);
+            if (config_client.servPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default 9190 instead",
+                      e[i].name, e[i].value);
+                config_client.servPort = 9190;
+            }
             continue;
         } else if (strcmp (e[i].name, "INTERVAL") == 0)
         {
-            file_client_config.interval = (int) strtol (e[i].value, NULL, 10);
-            continue;
-        } else if (strcmp (e[i].name, "FRECTIME") == 0)
-        {
-            file_client_config.frectime = (int) strtol (e[i].value, NULL, 10);
-            continue;
-        } else if (strcmp (e[i].name, "FRECATPS") == 0)
-        {
-            file_client_config.frecatps = (int) strtol (e[i].value, NULL, 10);
+            config_client.interval = (int) strtol (e[i].value, NULL, 10);
+            if (config_client.interval == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default 5 instead",
+                      e[i].name, e[i].value);
+                config_client.interval = 5;
+            }
             continue;
         } else if (strcmp (e[i].name, "CAFILE") == 0)
         {
-            strcpy (file_client_config.CAfile, e[i].value);
+            strcpy (config_client.caFile, e[i].value);
             continue;
-        } else if (strcmp (e[i].name, "SSLMODE") == 0)
+        } else if (strcmp (e[i].name, "PIDFILE") == 0)
         {
-            int sslmode = (int) strtol (e[i].value, NULL, 10);
-            if (sslmode == 0 || sslmode == 1 || sslmode == 2)
-                mode_ssl_client = sslmode;
+            strcpy (config_client.pidFile, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "DAEMON") == 0)
+        {
+            if (strcmp (e[i].value, "default") == 0)
+                config_client.modeDaemon = true;
+            else if (strcmp (e[i].value, "disable") == 0)
+                config_client.modeDaemon = false;
             else
-                perr_d (true, LOG_NOTICE,
-                        "Unknown configure option %s=%s", e[i].name, e[i].value);
-            continue;
-        } else if (strcmp (e[i].name, "UCERT") == 0)
-        {
-            strcpy (file_client_config.UCert, e[i].value);
-            continue;
-        } else if (strcmp (e[i].name, "UKEY") == 0)
-        {
-            strcpy (file_client_config.UKey, e[i].value);
+            {
+                perr (true, LOG_NOTICE,
+                      "Invalid value option %s=%s,use default instead",
+                      e[i].name, e[i].value);
+                config_client.modeDaemon = true;
+            }
             continue;
         } else
-            perr_d (true, LOG_NOTICE,
-                    "Unknown configure option %s=%s", e[i].name, e[i].value);
+            perr (true, LOG_NOTICE,
+                  "Unknown configure option %s=%s", e[i].name, e[i].value);
     }
-    if (file_client_config.serv_ip == -1)
-    {
-        perr_d (true, LOG_ERR,
-                "The server IP address could not be read correctly "
-                "from the configuration file");
-        exitCleanupClnt ();
-    }
-    if (file_client_config.serv_port == 0)
-    {
-        perr_d (true, LOG_ERR,
-                "The server port could not be read correctly "
-                "from the configuration file");
-        exitCleanupClnt ();
-    }
-    if (mode_ssl_client == client_only_ca && strlen (file_client_config.CAfile) == 0)
-    {
-        perr_d (true, LOG_ERR, "CA file not specified");
-        exitCleanupClnt ();
-    }
-    if (mode_ssl_client == client_with_cert_key &&
-        (strlen (file_client_config.UCert) == 0 || strlen (file_client_config.UKey) == 0))
-    {
-        perr_d (true, LOG_ERR, "User cert or key not specified");
-        exitCleanupClnt ();
-    }
-    perr_d (true, LOG_INFO, "mode_ssl_client = %d", mode_ssl_client);
+    perr (true, LOG_INFO,
+          "config Read Done! ServAddr = %s, "
+          "ServPort = %d, "
+          "Interval = %d, "
+          "CAFILE = %s, "
+          "PIDFILE = %s, "
+          "DAEMON = %s ",
+          inet_ntoa ((struct in_addr) {config_client.servIp}),
+          config_client.servPort,
+          config_client.interval,
+          config_client.caFile,
+          config_client.pidFile,
+          config_client.modeDaemon ? "default" : "disable");
+    errno = errno_save;
 }
 
-void exitCleanupClnt ()
+void exitCleanupServ ()
 {
-    errno = 0;
-//    printf ("\n");
-    perr_d (true, LOG_INFO, "Service Will Exit After Cleanigup");
-
-    if (thread_client_data_checker != 0)
-        pthread_cancel (thread_client_data_checker);
-    if (thread_client_data_sender != 0)
-        pthread_cancel (thread_client_data_sender);
-
-    printf ("sleep 3 sec...\n");
+    perr (true, LOG_INFO,
+          "Service Will Exit After Cleaning-up (3secs...)");
     sleep (3);
+
+
+    char * pid_file;
+    if (strcmp (config_server.pidFile, "default") == 0)
+        pid_file = PID_FILE_SERVER;
+    else if (strcmp (config_server.pidFile, "disable") == 0)
+        pid_file = NULL;
+    else pid_file = config_server.pidFile;
 
     if (pid_file_fd != -1)
         close (pid_file_fd);
-    if (access (PID_FILE_CLIENT, F_OK) == 0)
-        unlink (PID_FILE_CLIENT);
+    if (pid_file != NULL)
+    {
+        if (access (pid_file, F_OK) == 0)
+            unlink (pid_file);
+    }
     fflush (NULL);
     exit (0);
 }
 
-void resetClnt ()
+void exitCleanupClnt ()
 {
-    int rtn;
-    printf ("a\n");
+    perr (true, LOG_INFO,
+          "Service Will Exit After Cleaning-up (3secs...)");
+    sleep (3);
 
-    pthread_detach (thread_client_data_checker);
-    pthread_detach (thread_client_data_sender);
-    if (thread_client_data_checker != 0)
+    char * pid_file;
+    if (strcmp (config_client.pidFile, "default") == 0)
+        pid_file = PID_FILE_CLIENT;
+    else if (strcmp (config_client.pidFile, "disable") == 0)
+        pid_file = NULL;
+    else pid_file = config_client.pidFile;
+
+    if (pid_file_fd != -1)
+        close (pid_file_fd);
+    if (pid_file != NULL)
     {
-        rtn = pthread_cancel (thread_client_data_checker);
-        if (rtn == 0)
-            printf ("1.data checker cancel sended!\n");
-        else if (rtn == ESRCH)
-            printf ("1.data checker not found!\n");
-
-        sleep (10);
-        printf ("thread sig = %d", pthread_kill (thread_client_data_checker, 0));
-//        pthread_join (thread_client_data_checker, NULL);
-
-        rtn = pthread_cancel (thread_client_data_checker);
-        if (rtn == 0)
-            printf ("2.data checker cancel sended!\n");
-        else if (rtn == ESRCH)
-            printf ("2.data checker not found!\n");
+        if (access (pid_file, F_OK) == 0)
+            unlink (pid_file);
     }
-    printf ("b\n");
-    if (thread_client_data_sender != 0)
-    {
-        rtn = pthread_cancel (thread_client_data_sender);
-        if (rtn == 0)
-            printf ("3.data sender cancel sended!\n");
-        else if (rtn == ESRCH)
-            printf ("3.data sender not found!\n");
+    fflush (NULL);
+    exit (0);
+}
 
-//        pthread_join (thread_client_data_sender, NULL);
-
-        rtn = pthread_cancel (thread_client_data_sender);
-        if (rtn == 0)
-            printf ("4.data sender cancel sended!\n");
-        else if (rtn == ESRCH)
-            printf ("4.data sender not found!\n");
-    }
-    thread_client_data_checker = 0;
-    thread_client_data_sender = 0;
-
-    printf ("sleep 3 sec...\n");
+void resetServ ()
+{
+    perr (true, LOG_INFO,
+          "Service reset (3 secs)");
     sleep (3);
 
 
-    printf ("c\n");
-    default_confOpt (&file_client_config);
+    defaultConfOptServ (& config_server);
+    siglongjmp (jmp_server_rest, 1);
+}
 
-    printf ("d\n");
-    siglongjmp (jmp_client_rest, RESET);
+void resetClnt ()
+{
+    perr (true, LOG_INFO,
+          "Service reset (3 secs)");
+    sleep (3);
+
+
+    defaultConfOptClnt (& config_client);
+    siglongjmp (jmp_client_rest, 1);
+}
+
+bool checkRootPermission (const char * require_reason)
+{
+    int errno_save = errno;
+    bool flag = (geteuid () == 0);
+    perr (!flag, LOG_NOTICE,
+          "root permission are required: %s", require_reason);
+    errno = errno_save;
+    return flag;
+}
+
+void sendFINtoServ ()
+{
+    if (mode_ssl_client > client_ssl_disable)
+        SSL_write (ssl_serv_fd, "FIN", 4);
+    else write (serv_fd, "FIN", 4);
+}
+
+void downLightsCloseServ ()
+{
+    if (mode_ssl_client > client_ssl_disable)
+    {
+        SSL_shutdown (ssl_serv_fd);
+        SSL_free (ssl_serv_fd);
+        SSL_CTX_free (ctx_client_to_server);
+    }
+    close (serv_fd), serv_fd = -1;
+    turn_off_led (LED_GRE);
+    turn_off_led (LED_RED);
+    turn_off_led (LED_YEL);
 }

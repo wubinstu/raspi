@@ -19,7 +19,7 @@ extern void CreateLinkList (LNode *L, KeyValuePair e[], int length);
 /**
  * Free the space allocated by all nodes of
  * the whole linked list from the first node */
-extern void DestoryLinkList (LNode *L);
+extern void DestroyLinkList (LNode *L);
 
 /**
  * Return the length of the Given linked list.

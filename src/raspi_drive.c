@@ -1,7 +1,7 @@
 // 光子星物联网部分硬件驱动 
 // Coding : UTF-8
 // The File was Create By wubin
-// QQ:2472446921 Mail:wubinstu@foxmail.com
+// QQ:2472446921 Mail:wubinastu@outlook.com
 
 #include "raspi_drive.h"
 #include "log.h"
@@ -14,7 +14,7 @@ int initPi ()
     int err = wiringPiSetup ();
     if (err == -1)
     {
-        perr_d (true, LOG_ERR, "wiringPi start up error");
+        perr (true, LOG_ERR, "wiringPi start up error");
         return err;
     }
     return 0;
@@ -80,9 +80,9 @@ float disMeasure (int Trans, int Receive)
     digitalWrite (Trans, LOW);
 
     while (digitalRead (Receive) != 1);//等待RX电平为 1 (高电平)
-    gettimeofday (&tv1, NULL);//记录开始时间并写入结构体变量 tv1
+    gettimeofday (& tv1, NULL);//记录开始时间并写入结构体变量 tv1
     while (digitalRead (Receive) != 0);
-    gettimeofday (&tv2, NULL);//记录结束时间并写入结构体变量 tv2
+    gettimeofday (& tv2, NULL);//记录结束时间并写入结构体变量 tv2
 
     start = tv1.tv_sec * 1000000 + tv1.tv_usec;//计算开始时间(微妙级)
     stop = tv2.tv_sec * 1000000 + tv2.tv_usec;
@@ -98,7 +98,7 @@ bool TEST_IN (int LINE)//返回某阵脚的逻辑电平
     else return false;
 }
 
-bool readSensorData (int pinNum, float *Humidity, float *Temperature)
+bool readSensorData (int pinNum, float * Humidity, float * Temperature)
 //返回值表示数据读取成功或者失败  参数 pinNum 是数据线 wiringPi 数字编码号 
 {
     unsigned long data = 1;
@@ -122,8 +122,8 @@ bool readSensorData (int pinNum, float *Humidity, float *Temperature)
             if (digitalRead (pinNum) == HIGH)
                 data++;
         }//不要问我怎么实现的,我也不知道
-        *Humidity = (float) ((data >> 24) & 0xff) + (float) ((data >> 16) & 0xff) * (float) 0.1;
-        *Temperature = (float) ((data >> 8) & 0xff) + (float) ((data >> 0) & 0xff) * (float) 0.1;
+        * Humidity = (float) ((data >> 24) & 0xff) + (float) ((data >> 16) & 0xff) * (float) 0.1;
+        * Temperature = (float) ((data >> 8) & 0xff) + (float) ((data >> 0) & 0xff) * (float) 0.1;
         //参数 data 是无符号长整形数据(32位),前16位代表湿度和后16位温度,然后每16位数的前八位和后八位分别代表小数点前后
         return true;
     } else return false;
@@ -154,7 +154,7 @@ bool screen (int num, int dataPin, int clockPin)
                     0b01111111, // 8
                     0b01101111, // 9
                     0b01110111, // A
-                    0b01111100, // B
+                    0b01111100, // bindPort
                     0b00111001, // C
                     0b01011110, // D
                     0b01111001, // E
@@ -362,7 +362,7 @@ bool screen (int num, int dataPin, int clockPin)
 int initPi ()
 {
     errno = 0;
-    perr_d (true, LOG_INFO, "The wiringpi library is not used. Enter the simulator mode. "
+    perr (true, LOG_INFO, "The wiringpi library is not used. Enter the simulator mode. "
                             "All monitoring data will come from random numbers in the future");
     return 0;
 }
@@ -380,17 +380,17 @@ float read_cpu_temp ()
 
 void turn_on_led (int pinNum)
 {
-    perr_d (true, LOG_INFO, "[simulator] pinNum:%d: led turned on", pinNum);
+    perr (true, LOG_INFO, "[simulator] pinNum:%d: led turned on", pinNum);
 }
 
 void turn_off_led (int pinNum)
 {
-    perr_d (true, LOG_INFO, "[simulator] pinNum:%d: led turned off", pinNum);
+    perr (true, LOG_INFO, "[simulator] pinNum:%d: led turned off", pinNum);
 }
 
 void flash_led (int pinNum, int micro_secs)
 {
-    perr_d (true, LOG_INFO, "[simulator] pinNum:%d: led flashed", pinNum);
+    perr (true, LOG_INFO, "[simulator] pinNum:%d: led flashed", pinNum);
 }
 
 float disMeasure (int Trans, int Receive)
@@ -405,7 +405,7 @@ bool TEST_IN (int LINE)
 
 bool readSensorData (int pinNum, float *Humidity, float *Temperature)
 {
-    perr_d (true, LOG_INFO, "[simulator] pinNum:%d: readSensorData", pinNum);
+    perr (true, LOG_INFO, "[simulator] pinNum:%d: readSensorData", pinNum);
     *Humidity = (float) (randnum () % 41 + 40);
     *Temperature = (float) (randnum () % 41 + 20);
     return true;
@@ -413,7 +413,7 @@ bool readSensorData (int pinNum, float *Humidity, float *Temperature)
 
 bool screen (int num, int dataPin, int clockPin)
 {
-    perr_d (true, LOG_INFO, "[simulator] print:%d", num);
+    perr (true, LOG_INFO, "[simulator] print:%d", num);
     return true;
 }
 

@@ -49,7 +49,8 @@ add_library(client_run ${LIB_TYPE} src/client_run.c)
 
 # exec
 add_executable(rain_client rain_client.c)
-add_executable(test_server test_server.c)
+#add_executable(test_server test_server.c)
+add_executable(rain_server rain_server.c)
 
 #link
 if (NOT ${SIMULATOR})
@@ -61,15 +62,18 @@ target_link_libraries(load_clean conf raspi_drive rssl socket_fd)
 target_link_libraries(rsignal load_clean)
 target_link_libraries(client_run load_clean)
 target_link_libraries(rain_client rsignal client_run pthread)
-target_link_libraries(test_server load_clean)
+#target_link_libraries(test_server load_clean)
+target_link_libraries(rain_server load_clean)
 
 
 set(systemdUnit /usr/lib/systemd/system)
 install(TARGETS rain_client DESTINATION bin)
+install(TARGETS rain_server DESTINATION bin)
 install(FILES rain_client.service DESTINATION ${systemdUnit})
+install(FILES rain_server.service DESTINATION ${systemdUnit})
 
 
-message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精'")
+message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精' 这是本人首个工程级别项目,祝愿它足够优秀")
 string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S")
 message(STATUS "Build TimeStamp = ${BUILD_TIMESTAMP}")
 message(STATUS "Project Name = ${CMAKE_PROJECT_NAME}")

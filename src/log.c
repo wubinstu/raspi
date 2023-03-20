@@ -3,7 +3,7 @@
 #include "head.h"
 #include "global.h"
 
-char *log_prefix (int logLevel)
+char * log_prefix (int logLevel)
 {
     switch (logLevel)
     {
@@ -29,12 +29,12 @@ char *log_prefix (int logLevel)
 }
 
 
-void perr_d (bool condition, int logLevel, const char *message, ...)
+void perr (bool condition, int logLevel, const char * message, ...)
 {
     if (condition)
     {
         // The space size here is not set strictly
-        char *with_prefix = calloc (1, BUF_SIZE + PREFIX_LEN + CACHE_SIZE);
+        char * with_prefix = calloc (1, BUF_SIZE + PREFIX_LEN + CACHE_SIZE);
         strcpy (with_prefix, log_prefix (logLevel));
         if (errno != 0)
         {
@@ -44,19 +44,18 @@ void perr_d (bool condition, int logLevel, const char *message, ...)
             errno = 0;
         }
         strcat (with_prefix, message);
-        char *storage_args = calloc (2, BUF_SIZE + CACHE_SIZE);
+        char * storage_args = calloc (2, BUF_SIZE + CACHE_SIZE);
         va_list args;
         va_start(args, message);
         vsprintf (storage_args, with_prefix, args);
         va_end(args);
-        char *project_name;
+        char * project_name;
         if (mode_serv_clnt == server)project_name = PROJECT_SERVER_NAME;
         if (mode_serv_clnt == client)project_name = PROJECT_CLIENT_NAME;
         openlog (project_name, LOG_CONS | LOG_PID, LOG_DAEMON);
         syslog (logLevel, "%s", storage_args);
-        if (DEBUGMODE)
-            printf ("%s\n", storage_args);
         closelog ();
+        printf ("%s\n", storage_args);
         free (with_prefix);
         free (storage_args);
 //        if(logLevel <= LOG_ERR)

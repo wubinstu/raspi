@@ -1,18 +1,20 @@
 #include "arr.h"
 
-
+/// 将文件读取出来的某一行的第一个字符和#比对以判断是否为注释
 bool isNotes (const char msg[])
 {
-    if (msg[0] == '#')
-        return true;
-    else return false;
+//    if (msg[0] == '#')
+//        return true;
+//    else return false;
+    return (msg[0] == '#');
 }
 
 bool isEmptyL (const char msg[])
 {
-    if (msg[0] == '\n' || msg[0] == '\r')
-        return true;
-    else return false;
+//    if (msg[0] == '\n' || msg[0] == '\r')
+//        return true;
+//    else return false;
+    return (msg[0] == '\n' || msg[0] == '\r');
 }
 
 bool isContainC (char *msg, char c)

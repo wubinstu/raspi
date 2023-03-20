@@ -2,13 +2,13 @@
 #include "head.h"
 #include "types.h"
 
-void setElem (KeyValuePair *e, const char *name, const char *value)
+void setElem (KeyValuePair * e, const char * name, const char * value)
 {
     strcpy (e->name, name);
     strcpy (e->value, value);
 }
 
-void delElem (KeyValuePair *e)
+void delElem (KeyValuePair * e)
 {
     if (e != NULL)
         free (e);
@@ -26,7 +26,7 @@ void catElems (KeyValuePair e[], int length)
 }
 
 
-void clearMonit (RaspiMonitData *mn)
+void clearMonit (RaspiMonitData * mn)
 {
     if (mn == NULL)
         return;
@@ -36,17 +36,30 @@ void clearMonit (RaspiMonitData *mn)
     mn->env_humidity = 0;
 }
 
-void default_confOpt (confOptClnt *co)
+void defaultConfOptClnt (ConfOptClnt * co)
 {
     if (co == NULL)
         return;
-    co->serv_ip = inet_addr ("127.0.0.1");
-    co->serv_port = 9190;
+    co->servIp = inet_addr ("127.0.0.1");
+    co->servPort = 9190;
     co->interval = 10;
-    co->frectime = 42;
-    co->frecatps = 7;
-    co->mode_ssl_client = 0;
-    bzero (co->CAfile, sizeof (co->CAfile));
-    bzero (co->UCert, sizeof (co->UCert));
-    bzero (co->UKey, sizeof (co->UKey));
+    co->modeDaemon = true;
+
+    strcpy (co->caFile, "default");
+    strcpy (co->pidFile, "default");
+}
+
+void defaultConfOptServ (ConfOptServ * co)
+{
+    if (co == NULL)
+        return;
+    co->bindIp = INADDR_ANY;
+    co->bindPort = 9190;
+    co->modeSSL = true;
+    co->modeDaemon = true;
+
+    memset (co->caFile, 0, sizeof (co->caFile));
+    memset (co->servCert, 0, sizeof (co->servCert));
+    memset (co->servKey, 0, sizeof (co->servKey));
+    memset (co->pidFile, 0, sizeof (co->pidFile));
 }

@@ -1,0 +1,40 @@
+//
+// Created by Einc on 2023/03/19.
+//
+
+#include "global.h"
+#include "load_clean.h"
+#include "types.h"
+
+/// TODO
+/// mysql
+/// thread pool
+/// webserver
+int main (int argc, const char * argv[])
+{
+    setServClnt (server);
+    confToVarServ ();
+    runTimeArgsServ (argc, argv);
+
+
+    if (!checkRootPermission ("To create pid file"))
+        return -1;
+
+    if (strcmp (config_server.pidFile, "default") == 0)
+        checkPidFileClnt (PID_FILE_SERVER);
+    else if (strcmp (config_server.pidFile, "disable") == 0)
+        checkPidFileClnt (NULL);
+    else checkPidFileClnt (config_server.pidFile);
+
+    if (config_server.modeSSL)
+        mode_ssl_server = server_ssl_enable;
+    else mode_ssl_server = server_ssl_disable;
+
+    if (config_server.modeDaemon)
+        daemonize (PROJECT_CLIENT_NAME);
+
+    if (sigsetjmp(jmp_server_rest, true) != 0)
+        confToVarServ ();
+
+    return 0;
+}

@@ -13,8 +13,8 @@ int clnt_sock;
 //bool mode_strict = false;
 bool mode_check_clnt = false;
 
-SSL *ssl_clnt_fd[sizeof (fd_set)];
-//SSL_CTX * ctx;
+SSL * ssl_clnt_fd[sizeof (fd_set)];
+//SSL_CTX * ctx_client_to_server;
 
 #define UCert "/home/wubin/ssl/keys/einc_fun.pem"
 #define UKey "/home/wubin/ssl/keys/einc_fun.key"
@@ -32,7 +32,7 @@ char text[BUF_SIZE];
 struct sockaddr_in serv_addr, clnt_addr;
 unsigned short serv_port = 9190;
 
-bool check_fd (int fd)
+bool checkFd (int fd)
 {
     if (fcntl (fd, F_GETFL, 0) == -1)
         return false;
@@ -45,17 +45,17 @@ void stop (int signo)
     copy_reads = reads;
     for (int i = 0; i < fd_max + 1; i++)
     {
-        if (FD_ISSET(i, &copy_reads))
+        if (FD_ISSET(i, & copy_reads))
         {
-            if (check_fd (i))
+            if (checkFd (i))
             {
                 write (i, "FIN", 4);
                 close (i);
             }
         }
     }
-    if (mode_strict) SSL_CTX_free (ctx);
-    if (check_fd (serv_sock))
+    if (mode_ssl_client > client_ssl_disable) SSL_CTX_free (ctx_client_to_server);
+    if (checkFd (serv_sock))
         close (serv_sock);
 
     exit (0);
@@ -64,8 +64,8 @@ void stop (int signo)
 
 void handler ()
 {
-    FD_ZERO(&reads);
-    FD_SET(serv_sock, &reads);
+    FD_ZERO(& reads);
+    FD_SET(serv_sock, & reads);
     fd_max = serv_sock;
     while (true)
     {
@@ -73,7 +73,7 @@ void handler ()
         timeout.tv_sec = 5;
         timeout.tv_usec = 0;
 
-        fd_num = select (fd_max + 1, &copy_reads, 0, 0, &timeout);//It's Also fine set timeout as NULL
+        fd_num = select (fd_max + 1, & copy_reads, 0, 0, & timeout);//It's Also fine set timeout as NULL
         if (fd_num == -1)
         {
             printf ("Function select() returns -1\n");
@@ -82,22 +82,22 @@ void handler ()
         for (int i = 0; i < fd_max + 1; i++)
         {
 
-            if (FD_ISSET(i, &copy_reads))
+            if (FD_ISSET(i, & copy_reads))
             {
                 if (i == serv_sock)
                 {
                     addr_size = sizeof (clnt_addr);
-                    clnt_sock = accept (serv_sock, (struct sockaddr *) &clnt_addr, &addr_size);
+                    clnt_sock = accept (serv_sock, (struct sockaddr *) & clnt_addr, & addr_size);
                     if (clnt_sock == -1)
                     {
                         printf ("Function accept() returns -1\n");
                         exit (-1);
                     }
 
-                    FD_SET(clnt_sock, &reads);
+                    FD_SET(clnt_sock, & reads);
                     if (mode_strict)
                     {
-                        ssl_clnt_fd[clnt_sock] = SSL_fd (ctx, clnt_sock);
+                        ssl_clnt_fd[clnt_sock] = SSL_fd (ctx_client_to_server, clnt_sock);
                         SSL_accept (ssl_clnt_fd[clnt_sock]);
                         if (mode_check_clnt)
                             showPeerCert (ssl_clnt_fd[clnt_sock]);
@@ -107,10 +107,10 @@ void handler ()
                     printf ("%s", text);
                 } else
                 {
-                    memset (&raspi_monit_data, 0, sizeof (raspi_monit_data));
+                    memset (& raspi_monit_data, 0, sizeof (raspi_monit_data));
                     if (mode_strict)
-                        str_len = SSL_read (ssl_clnt_fd[i], &raspi_monit_data, sizeof (raspi_monit_data));
-                    else str_len = read (i, &raspi_monit_data, sizeof (raspi_monit_data));//i -> clnt_sock
+                        str_len = SSL_read (ssl_clnt_fd[i], & raspi_monit_data, sizeof (raspi_monit_data));
+                    else str_len = read (i, & raspi_monit_data, sizeof (raspi_monit_data));//i -> clnt_sock
 
 //					if(raspi_monit_data.distance == 0) continue;
                     if (str_len == sizeof (raspi_monit_data))
@@ -128,14 +128,14 @@ void handler ()
                         exit (-1);
                     } else if (str_len == 0 || str_len == 4)
                     {
-                        FD_CLR(i, &reads);
+                        FD_CLR(i, & reads);
                         if (mode_strict)
                         {
                             SSL_shutdown (ssl_clnt_fd[i]);
                             SSL_free (ssl_clnt_fd[i]);
                         }
                         close (i);
-                        sprintf (text, "[ %s ] Closed Client: %d\n", (char *) &raspi_monit_data, i);
+                        sprintf (text, "[ %s ] Closed Client: %d\n", (char *) & raspi_monit_data, i);
                         printf ("%s", text);
                     } else
                     {
@@ -154,13 +154,13 @@ void handler ()
     }
 }
 
-int main (int argc, char *argv[])
+int main (int argc, char * argv[])
 {
 
     struct sigaction act;
-    memset (&act, 0, sizeof (struct sigaction));
+    memset (& act, 0, sizeof (struct sigaction));
     act.sa_handler = stop;
-    sigaction (SIGINT, &act, NULL);
+    sigaction (SIGINT, & act, NULL);
 
 
     if (argc < 2)
@@ -208,28 +208,28 @@ int main (int argc, char *argv[])
     if (mode_strict)
     {
         int flag;
-        set_serv_clnt (server);
-        ctx = initSSL ();
-        if (ctx == NULL)
+        setServClnt (server);
+        ctx_client_to_server = initSSL (server);
+        if (ctx_client_to_server == NULL)
         {
             printf ("init SSL failed\n");
             exit (-1);
         }
-        flag = loadCert (ctx, UCert);
+        flag = loadCert (ctx_client_to_server, UCert);
         if (!flag)
         {
             printf ("User Cert Load failed\n");
             exit (-1);
         }
         printf ("User Cert %s load complete\n", UCert);
-        flag = loadKey (ctx, UKey);
+        flag = loadKey (ctx_client_to_server, UKey);
         if (!flag)
         {
             printf ("User Private Key Load failed\n");
             exit (-1);
         }
         printf ("User Private Key %s load complete\n", UKey);
-        flag = checkKey (ctx);
+        flag = checkKey (ctx_client_to_server);
         if (!flag)
         {
             printf ("User Private Key and Cert does NOT match\n");
@@ -239,7 +239,7 @@ int main (int argc, char *argv[])
 
         if (mode_check_clnt)
         {
-            flag = loadCA (ctx, CAfile);
+            flag = loadCA (ctx_client_to_server, CAfile);
             if (!flag)
             {
                 printf ("CA file Load failed\n");
@@ -257,12 +257,12 @@ int main (int argc, char *argv[])
         exit (-1);
     }
 
-    memset (&serv_addr, 0, sizeof (serv_addr));
+    memset (& serv_addr, 0, sizeof (serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl (INADDR_ANY);
     serv_addr.sin_port = htons (serv_port);
 
-    state = bind (serv_sock, (struct sockaddr *) &serv_addr, sizeof (serv_addr));
+    state = bind (serv_sock, (struct sockaddr *) & serv_addr, sizeof (serv_addr));
     if (state == -1)
     {
         printf ("Function bind() returns -1\n");
@@ -290,7 +290,7 @@ int main (int argc, char *argv[])
     if(clnt_sock == -1) errors("Function accept() return -1");
 
 
-    ssl_clnt_fd = SSL_fd (ctx,clnt_sock);
+    ssl_clnt_fd = SSL_fd (ctx_client_to_server,clnt_sock);
     SSL_accept (ssl_clnt_fd);
 
     printf ("ssl accept\n");
@@ -330,7 +330,7 @@ int main (int argc, char *argv[])
 //
 //	 pthread_join(t1,NULL);
 
-//	set_fl_d(clnt_sock,O_NONBLOCK,true);
+//	setSockFlag(clnt_sock,O_NONBLOCK,true);
 
 //	p1 = fork();
 //	if(p1 == 0)
@@ -349,7 +349,7 @@ int main (int argc, char *argv[])
 
 //	SSL_shutdown (ssl_clnt_fd);
 //	SSL_free (ssl_clnt_fd);
-//	SSL_CTX_free (ctx);
+//	SSL_CTX_free (ctx_client_to_server);
 
 //	close(serv_sock);
     return 0;

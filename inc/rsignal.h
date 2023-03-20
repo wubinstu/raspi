@@ -6,12 +6,13 @@
 #define __RSIGNAL_H_
 
 
-/** Register signal processing function
+/** TODO
+ * Register signal processing function
  * SIGINT -> exitCleanupClnt()
  * SIGTERM -> myexit()
  * SIGQUIT -> myexit()
  * SIGHUP -> resetClnt()
  * SIGALARM -> resetClnt() */
-extern void sig_register_client ();
+extern void sigRegisterClient ();
 
 #endif //__RSIGNAL_H_

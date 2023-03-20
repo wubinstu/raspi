@@ -32,7 +32,7 @@ void CreateLinkList (LNode *L, KeyValuePair e[], int length)
     }
 }
 
-void DestoryLinkList (LNode *L)
+void DestroyLinkList (LNode *L)
 {
     LNode master = (*L);
     LNode ahead;

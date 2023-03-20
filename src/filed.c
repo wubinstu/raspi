@@ -9,105 +9,110 @@ void setFiledLogLevel (int logLevel)
         filed_logLevel = logLevel;
 }
 
-long file_size_d (const char *file_path)
+long fileSize (const char *file_path)
 {
-    errno = 0;
-    struct stat statbuf;
-    int state = stat (file_path, &statbuf);
+    int errno_save = errno;
+    struct stat stat_buf;
+    int state = stat (file_path, &stat_buf);
     if (state == -1)
     {
-        perr_d (true, filed_logLevel,
-                "function stat returns %d when you called file_size_d", state);
+        perr (true, filed_logLevel,
+              "function stat returns %d when you called fileSize", state);
         return -1;
     }
-    return statbuf.st_size;
+    errno = errno_save;
+    return stat_buf.st_size;
 }
 
-int readopen_d (const char *file_path)
+int readOpen (const char *file_path)
 {
-    errno = 0;
+    int errno_save = errno;
     int state = access (file_path, F_OK);
     if (state == -1)
     {
-        perr_d (state == -1, filed_logLevel,
-                "function access(F_OK) returns %d when you called readopen_d", state);
+        perr (state == -1, filed_logLevel,
+              "function access(F_OK) returns %d when you called readOpen", state);
         return state;
     }
     int fd = open (file_path, O_RDONLY);
-    perr_d (fd == -1, filed_logLevel,
-            "fucntion open returns %d when you called readopen_d", fd);
+    perr (fd == -1, filed_logLevel,
+          "function open returns %d when you called readOpen", fd);
+    errno = errno_save;
     return fd;
 }
 
-int writeopen_d (const char *file_path)
+int writeOpen (const char *file_path)
 {
-    errno = 0;
+    int errno_save = errno;
     int fd;
     if (access (file_path, F_OK) == -1)
     {
         fd = creat (file_path, FILE_MODE);
         if (fd == -1)
         {
-            perr_d (fd == -1, filed_logLevel,
-                    "function access(F_OK) returns -1 and "
-                    "function create returns %d when you called writeopen_d", fd);
+            perr (fd == -1, filed_logLevel,
+                  "function access(F_OK) returns -1 and "
+                  "function create returns %d when you called writeOpen", fd);
             close (fd);
             return fd;
         }
     }
     fd = open (file_path, O_WRONLY);
-    perr_d (fd == -1, filed_logLevel,
-            "function open returns %d when you called writeopen_d", fd);
+    perr (fd == -1, filed_logLevel,
+          "function open returns %d when you called writeOpen", fd);
+    errno = errno_save;
     return fd;
 }
 
-int rwopen_d (const char *file_path)
+int rwOpen (const char *file_path)
 {
-    errno = 0;
+    int errno_save = errno;
     int fd;
     if (access (file_path, F_OK) == -1)
     {
         fd = creat (file_path, FILE_MODE);
         if (fd == -1)
         {
-            perr_d (fd == -1, filed_logLevel,
-                    "function access(F_OK) returns -1 and "
-                    "function create returns %d when you called rwopen_d", fd);
+            perr (fd == -1, filed_logLevel,
+                  "function access(F_OK) returns -1 and "
+                  "function create returns %d when you called rwOpen", fd);
             close (fd);
             return fd;
         }
     }
     fd = open (file_path, O_RDWR);
-    perr_d (fd == -1, filed_logLevel,
-            "function open returns %d when you called rwopen_d", fd);
+    perr (fd == -1, filed_logLevel,
+          "function open returns %d when you called rwOpen", fd);
+    errno = errno_save;
     return fd;
 }
 
-int newopen_d (const char *file_path)
+int newOpen (const char *file_path)
 {
-    errno = 0;
+    int errno_save = errno;
     int fd;
     if (access (file_path, F_OK) == -1)
     {
         fd = creat (file_path, FILE_MODE);
         if (fd == -1)
         {
-            perr_d (true, filed_logLevel,
-                    "function access(F_OK) returns -1 and "
-                    "function create returns %d when you called newopen_d", fd);
+            perr (true, filed_logLevel,
+                  "function access(F_OK) returns -1 and "
+                  "function create returns %d when you called newOpen", fd);
             close (fd);
             return fd;
         }
     }
     fd = open (file_path, O_RDWR | O_TRUNC);
-    perr_d (fd == -1, filed_logLevel,
-            "function open returns %d when you called newopen_d", fd);
+    perr (fd == -1, filed_logLevel,
+          "function open returns %d when you called newOpen", fd);
+    errno = errno_save;
     return fd;
 }
 
-long fcopyfile_d (int source_fd, int destination_fd)
+long copyFile (int source_fd, int destination_fd)
 {
-    errno = 0;
+    int errno_save = errno;
     char buf[BUF_SIZE];
     long read_size, write_size, count_size = 0;
     lseek (source_fd, 0, SEEK_SET);
@@ -119,19 +124,20 @@ long fcopyfile_d (int source_fd, int destination_fd)
         if (read_size == -1)
         {
             //read error,stop
-            perr_d (true, filed_logLevel,
-                    "function read returns -1 when you called fcopyfile_d");
+            perr (true, filed_logLevel,
+                  "function read returns -1 when you called copyFile");
             return count_size;
         }
         count_size += read_size;
         write_size = write (destination_fd, buf, read_size);
         if (write_size != read_size)
         {
-            perr_d (true, filed_logLevel,
-                    "the size of read and write is unequal "
-                    "when you called fcopyfile_d");
+            perr (true, filed_logLevel,
+                  "the size of read and write is unequal "
+                  "when you called copyFile");
             return count_size;
         }
     } while (read_size > 0);
+    errno = errno_save;
     return count_size;
 }

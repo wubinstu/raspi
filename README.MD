@@ -37,7 +37,7 @@ $ git clone https://gitee.com/Einc/raspi.git
 # 编译
 $ cd raspi && mkdir build && cd build && cmake .. && make
 #或者
-$ cd raspi && cmake -B build && cmake --build build
+$ cd raspi && cmake -bindPort build && cmake --build build
 
 # 安装(可选)
 $ sudo cmake --install build || make install
@@ -204,40 +204,40 @@ FRecAtps = 7
         subString,upperConversion,lowerConversion
 
     conf:
-        readconf,defaultConfClnt,checkconf
-        checkread
+        readConf,defaultConfClnt,checkConf
+        checkRead
 
    *file:
         file_size,readopen,writeopen
         rwopen,newopen,fcopyfile
     filed:
-        setFiledLogLevel,file_size_d,readopen_d
-        writeopen_d,rwopen_d,newopen_d
-        fcopyfile_d
+        setFiledLogLevel,fileSize,readOpen
+        writeOpen,rwOpen,newOpen
+        copyFile
         
    *msg:
         errors,warnings,success
         perr
     msgd:
-        log_prefix,perr_d
+        log_prefix,perr
 
     mylink:
-        InitLinkList,CreateLinkList,DestoryLinkList
+        InitLinkList,CreateLinkList,DestroyLinkList
         LengthOfLinkList,InsertIntoLinkList,GetElemFromLinkList
         DeleteElemAtLinkList,DisplayLinkList,ListToArry
         
     myprocess:
         daemonize,exitCleanupClnt,resetClnt
-        checkPidFile,check_permission,sig_register_client
-        dealWithArgsClnt
+        checkPidFileClnt,checkRootPermission,sigRegisterClient
+        runTimeArgsClnt
 
    *mysock:
         NameToHost,creatServSock,connectServ
         acceptClnt,sockReuseAddr,sockNagle
     mysockd:
-        setFiledLogLevel,NameToHost_d,creatServSock_d
-        connectServ_d,acceptClnt_d,sockReuseAddr_d
-        sockNagle_d,set_fl_d,check_fd
+        setFiledLogLevel,NameToHost,creatServSock
+        connectServ,acceptClnt,sockReuseAddr
+        sockNagle,setSockFlag,checkFd
         
     myssl:
         initSSL,loadCA,loadCert
@@ -245,7 +245,7 @@ FRecAtps = 7
         showSelfCert,SSL_fd
         
     mythread:
-        conf2var,tryConnect,checkMonit
+        confToVarClnt,tryConnect,checkMonit
         sendData
 
     raspi:

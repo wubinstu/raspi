@@ -11,7 +11,15 @@ enum ServClnt
 
 enum ClntSSL
 {
-    client_empty = 0, client_only_ca = 1, client_with_cert_key = 2
+    client_ssl_disable = -1,
+    client_ssl_empty = 0,
+    client_ssl_only_ca = 1
+};
+
+enum ServSSL
+{
+    server_ssl_disable = -1,
+    server_ssl_enable = 1
 };
 
 /** For configuration file */
@@ -27,9 +35,9 @@ typedef struct element
  * make the linked list more widely applicable */
 typedef struct LinkNode
 {
-    KeyValuePair *opt;
-    struct LinkNode *next;
-} Node, *LNode;
+    KeyValuePair * opt;
+    struct LinkNode * next;
+} Node, * LNode;
 
 /** For data detection */
 typedef struct monitoring
@@ -40,24 +48,36 @@ typedef struct monitoring
     float env_humidity;
 } RaspiMonitData;
 
-typedef struct configuration_options
+typedef struct configuration_options_client
 {
-    unsigned long serv_ip;
-    unsigned short serv_port;
+    unsigned long servIp;
+    unsigned short servPort;
     int interval;
-    int frectime;
-    int frecatps;
-    enum ClntSSL mode_ssl_client;
-    char CAfile[256];
-    char UCert[256];
-    char UKey[256];
-} confOptClnt;
+
+    char caFile[256];
+    char pidFile[256];
+    bool modeDaemon;
+} ConfOptClnt;
+
+typedef struct configuration_options_server
+{
+    unsigned long bindIp;
+    unsigned short bindPort;
+
+
+    bool modeDaemon;
+    bool modeSSL;
+    char caFile[256];
+    char servCert[256];
+    char servKey[256];
+    char pidFile[256];
+} ConfOptServ;
 
 /** Fill data */
-extern void setElem (KeyValuePair *e, const char *name, const char *value);
+extern void setElem (KeyValuePair * e, const char * name, const char * value);
 
 /** Free elem */
-extern void delElem (KeyValuePair *e);
+extern void delElem (KeyValuePair * e);
 
 /** Print elem */
 extern void catElem (KeyValuePair e);
@@ -66,10 +86,12 @@ extern void catElem (KeyValuePair e);
 extern void catElems (KeyValuePair e[], int length);
 
 /** set struct value to zero */
-extern void clearMonit (RaspiMonitData *mn);
+extern void clearMonit (RaspiMonitData * mn);
 
 /**
- * set defalut value to configuration */
-extern void default_confOpt (confOptClnt *co);
+ * set default value to configuration */
+extern void defaultConfOptClnt (ConfOptClnt * co);
+
+extern void defaultConfOptServ (ConfOptServ * co);
 
 #endif
