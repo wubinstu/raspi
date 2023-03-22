@@ -137,6 +137,18 @@ void runTimeArgsServ (int argc, const char * argv[])
                 config_server.bindPort = 9190;
             }
             continue;
+        } else if (strcmp (args, "--httpport") == 0)
+        {
+            config_server.httpPort = (unsigned short)
+                    strtol (value, NULL, 10);
+            if (config_server.httpPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --bindport = %s,use default 8080 instead",
+                      value);
+                config_server.httpPort = 8080;
+            }
+            continue;
         } else if (strcmp (args, "--sslmode") == 0)
         {
             if (strcmp (value, "default") == 0)
@@ -181,6 +193,34 @@ void runTimeArgsServ (int argc, const char * argv[])
                 config_server.modeDaemon = true;
             }
             continue;
+        } else if (strcmp (args, "--sqlhost") == 0)
+        {
+            strcpy (config_server.sqlHost, value);
+            continue;
+        } else if (strcmp (args, "--sqlport") == 0)
+        {
+            config_server.sqlPort = (unsigned short)
+                    strtol (value, NULL, 10);
+            if (config_server.sqlPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid Arguments --bindport = %s,use default 3306 instead",
+                      value);
+                config_server.sqlPort = 3306;
+            }
+            continue;
+        } else if (strcmp (args, "--sqluser") == 0)
+        {
+            strcpy (config_server.sqlUser, value);
+            continue;
+        } else if (strcmp (args, "--sqlpass") == 0)
+        {
+            strcpy (config_server.sqlPass, value);
+            continue;
+        } else if (strcmp (args, "--sqlname") == 0)
+        {
+            strcpy (config_server.sqlName, value);
+            continue;
         } else if (strcmp (args, "--clean-pid") == 0)
         {
             char * pid_file;
@@ -201,7 +241,7 @@ void runTimeArgsServ (int argc, const char * argv[])
         {
             printf ("resetServ %s\n", CONF_FILE_SERVER);
             unlink (CONF_FILE_SERVER);
-            defaultConfClnt (CONF_FILE_SERVER);
+            defaultConfServ (CONF_FILE_SERVER);
             exit (0);
         } else if (strcmp (args, "--settings") == 0)
         {
@@ -221,12 +261,18 @@ void runTimeArgsServ (int argc, const char * argv[])
             printf ("Usage:  "
                     "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
                     "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
+                    "[--httpport] [port]\t\t\t\t\tspecify server http port\n\t"
                     "[--sslmode] [disable,default]\t\t\t\tspecify server ip bind port\n\t"
                     "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
                     "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
                     "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
                     "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
                     "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+                    "[--sqlhost] [ip / hostname]\t\t\t\tspecify MySQL server host name\n\t"
+                    "[--sqlport] [port]\t\t\t\t\tspecify server MySQL port\n\t"
+                    "[--sqluser] [user]\t\t\t\t\tspecify server MySQL user\n\t"
+                    "[--sqlpass] [pass]\t\t\t\t\tspecify server MySQL pass\n\t"
+                    "[--sqlname] [name]\t\t\t\t\tspecify server MySQL DataBase Name\n\t"
                     "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
                     "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
                     "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
@@ -243,22 +289,34 @@ void runTimeArgsServ (int argc, const char * argv[])
     free (args);
     free (value);
     perr (true, LOG_INFO,
-          "config Read Done! BindAddr = %s, "
-          "bindPort = %d, "
+          "runTime Arguments Read Done! BindAddr = %s, "
+          "BindPort = %d, "
+          "HttpPort = %d, "
           "SSLMode = %s, "
           "CAFILE = %s, "
           "SERVCERT = %s, "
           "SERVKEY = %s, "
           "PIDFILE = %s, "
-          "DAEMON = %s ",
+          "DAEMON = %s, "
+          "SQLHOST = %s, "
+          "SQLPORT = %d, "
+          "SQLUSER = %s, "
+          "SQLPASS = %s, "
+          "SQLNAME = %s ",
           inet_ntoa ((struct in_addr) {config_server.bindIp}),
           config_server.bindPort,
+          config_server.httpPort,
           config_server.modeSSL ? "default" : "disable",
           config_server.caFile,
           config_server.servCert,
           config_server.servKey,
           config_server.pidFile,
-          config_server.modeDaemon ? "default" : "disable");
+          config_server.modeDaemon ? "default" : "disable",
+          config_server.sqlHost,
+          config_server.sqlPort,
+          config_server.sqlUser,
+          config_server.sqlPass,
+          config_server.sqlName);
     errno = errno_save;
 }
 
@@ -418,6 +476,7 @@ void checkPidFileServ (char * pid_file)
               "service already running! stopped. "
               "(If Not,Please type \"--clean-pid\" to remove %s)",
               pid_file);
+        strcpy (config_server.pidFile, "disable");
         exitCleanupServ ();
     }
     pid_file_fd = open (pid_file, O_CREAT | O_RDWR | O_TRUNC, FILE_MODE);
@@ -516,6 +575,18 @@ void confToVarServ ()
                 config_server.bindPort = 9190;
             }
             continue;
+        } else if (strcmp (e[i].name, "HTTPPORT") == 0)
+        {
+            config_server.httpPort = (unsigned short)
+                    strtol (e[i].value, NULL, 10);
+            if (config_server.httpPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default 8080 instead",
+                      e[i].name, e[i].value);
+                config_server.httpPort = 8080;
+            }
+            continue;
         } else if (strcmp (e[i].name, "SSLMODE") == 0)
         {
             if (strcmp (e[i].value, "default") == 0)
@@ -560,6 +631,34 @@ void confToVarServ ()
                 config_server.modeDaemon = true;
             }
             continue;
+        } else if (strcmp (e[i].name, "SQLHOST") == 0)
+        {
+            strcpy (config_server.sqlHost, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "SQLPORT") == 0)
+        {
+            config_server.sqlPort = (unsigned short)
+                    strtol (e[i].value, NULL, 10);
+            if (config_server.sqlPort == 0)
+            {
+                perr (true, LOG_ERR,
+                      "Invalid value option %s=%s,use default 3306 instead",
+                      e[i].name, e[i].value);
+                config_server.sqlPort = 3306;
+            }
+            continue;
+        } else if (strcmp (e[i].name, "SQLUSER") == 0)
+        {
+            strcpy (config_server.sqlUser, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "SQLPASS") == 0)
+        {
+            strcpy (config_server.sqlPass, e[i].value);
+            continue;
+        } else if (strcmp (e[i].name, "SQLNAME") == 0)
+        {
+            strcpy (config_server.sqlName, e[i].value);
+            continue;
         } else
             perr (true, LOG_NOTICE,
                   "Unknown configure option %s=%s", e[i].name, e[i].value);
@@ -567,20 +666,32 @@ void confToVarServ ()
     perr (true, LOG_INFO,
           "config Read Done! BindAddr = %s, "
           "BindPort = %d, "
+          "HttpPort = %d, "
           "SSLMode = %s, "
           "CAFILE = %s, "
           "SERVCERT = %s, "
           "SERVKEY = %s, "
           "PIDFILE = %s, "
-          "DAEMON = %s ",
+          "DAEMON = %s, "
+          "SQLHOST = %s, "
+          "SQLPORT = %d, "
+          "SQLUSER = %s, "
+          "SQLPASS = %s, "
+          "SQLNAME = %s ",
           inet_ntoa ((struct in_addr) {config_server.bindIp}),
           config_server.bindPort,
+          config_server.httpPort,
           config_server.modeSSL ? "default" : "disable",
           config_server.caFile,
           config_server.servCert,
           config_server.servKey,
           config_server.pidFile,
-          config_server.modeDaemon ? "default" : "disable");
+          config_server.modeDaemon ? "default" : "disable",
+          config_server.sqlHost,
+          config_server.sqlPort,
+          config_server.sqlUser,
+          config_server.sqlPass,
+          config_server.sqlName);
     errno = errno_save;
 }
 

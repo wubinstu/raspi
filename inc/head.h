@@ -31,5 +31,6 @@
 #include <sys/resource.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <mysql/mysql.h>
 
 #endif

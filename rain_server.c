@@ -8,7 +8,7 @@
 
 /// TODO
 /// mysql
-/// thread pool
+/// [Done] thread pool
 /// webserver
 int main (int argc, const char * argv[])
 {
@@ -21,10 +21,10 @@ int main (int argc, const char * argv[])
         return -1;
 
     if (strcmp (config_server.pidFile, "default") == 0)
-        checkPidFileClnt (PID_FILE_SERVER);
+        checkPidFileServ (PID_FILE_SERVER);
     else if (strcmp (config_server.pidFile, "disable") == 0)
-        checkPidFileClnt (NULL);
-    else checkPidFileClnt (config_server.pidFile);
+        checkPidFileServ (NULL);
+    else checkPidFileServ (config_server.pidFile);
 
     if (config_server.modeSSL)
         mode_ssl_server = server_ssl_enable;
@@ -36,5 +36,6 @@ int main (int argc, const char * argv[])
     if (sigsetjmp(jmp_server_rest, true) != 0)
         confToVarServ ();
 
+    exitCleanupServ ();
     return 0;
 }

@@ -31,39 +31,50 @@ set(LIBRARY_OUTPUT_PATH lib)
 link_directories(lib)
 #link_directories(../lib)
 
-
 # add lib
 set(LIB_TYPE STATIC)
 
-add_library(filed ${LIB_TYPE} src/filed.c src/global.c src/log.c)
-add_library(linklist ${LIB_TYPE} src/linklist.c src/global.c src/types.c)
-add_library(raspi_drive ${LIB_TYPE} src/raspi_drive.c src/global.c src/log.c)
-add_library(rssl ${LIB_TYPE} src/rssl.c src/global.c src/log.c)
-add_library(socket_fd ${LIB_TYPE} src/socket_fd.c src/global.c src/log.c)
-
 add_library(arr ${LIB_TYPE} src/arr.c)
 add_library(conf ${LIB_TYPE} src/conf.c)
+add_library(filed ${LIB_TYPE} src/filed.c src/global.c src/log.c)
+add_library(linklist ${LIB_TYPE} src/linklist.c src/global.c src/types.c)
 add_library(load_clean ${LIB_TYPE} src/load_clean.c)
+add_library(raspi_drive ${LIB_TYPE} src/raspi_drive.c src/global.c src/log.c)
 add_library(rsignal ${LIB_TYPE} src/rsignal.c)
-add_library(client_run ${LIB_TYPE} src/client_run.c)
+add_library(rssl ${LIB_TYPE} src/rssl.c src/global.c src/log.c)
+add_library(run_client ${LIB_TYPE} src/run_client.c)
+add_library(run_server ${LIB_TYPE} src/run_server.c)
+add_library(self_sql ${LIB_TYPE} src/self_sql.c)
+add_library(self_thread ${LIB_TYPE} src/log.c src/self_thread.c)
+add_library(socket_fd ${LIB_TYPE} src/socket_fd.c src/global.c src/log.c)
+add_library(sql_pool ${LIB_TYPE} src/sql_pool.c)
+add_library(thread_pool ${LIB_TYPE} src/thread_pool.c)
+add_library(web_http ${LIB_TYPE} src/web_http.c)
+
 
 # exec
 add_executable(rain_client rain_client.c)
-#add_executable(test_server test_server.c)
 add_executable(rain_server rain_server.c)
 
 #link
 if (NOT ${SIMULATOR})
     target_link_libraries(raspi_drive wiringPi)
 endif ()
+
 target_link_libraries(rssl crypto ssl)
 target_link_libraries(conf arr filed linklist)
 target_link_libraries(load_clean conf raspi_drive rssl socket_fd)
 target_link_libraries(rsignal load_clean)
-target_link_libraries(client_run load_clean)
-target_link_libraries(rain_client rsignal client_run pthread)
-#target_link_libraries(test_server load_clean)
-target_link_libraries(rain_server load_clean)
+target_link_libraries(run_client load_clean)
+
+target_link_libraries(self_sql mysqlclient)
+target_link_libraries(self_thread pthread)
+target_link_libraries(sql_pool self_sql)
+target_link_libraries(thread_pool self_thread)
+
+
+target_link_libraries(rain_client rsignal run_client)
+target_link_libraries(rain_server load_clean thread_pool)
 
 
 set(systemdUnit /usr/lib/systemd/system)

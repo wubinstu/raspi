@@ -106,6 +106,30 @@ int acceptClnt (int server_fd, struct sockaddr_in * clnt_addr)
     return clnt;
 }
 
+int createServEpoll (int sock_fd)
+{
+    int epfd = epoll_create1 (0);
+    if (epfd == -1)
+    {
+        perr (true, LOG_WARNING,
+              "function epoll_create1 returns -1 when called createServEpoll");
+        return -1;
+    }
+    setSockFlag (sock_fd, O_NONBLOCK, true);
+    struct epoll_event ev;
+    ev.data.fd = sock_fd;
+    ev.events = EPOLLIN | EPOLLET;
+
+    if (epoll_ctl (epfd, EPOLL_CTL_ADD, sock_fd, & ev) == -1)
+    {
+        perr (true, LOG_WARNING,
+              "function epoll_ctl returns -1 when called createServEpoll");
+        close (epfd);
+        return -1;
+    }
+    return epfd;
+}
+
 void sockReuseAddr (int fd)
 {
     int opt = 1;

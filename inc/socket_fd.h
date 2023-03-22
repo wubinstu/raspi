@@ -8,7 +8,7 @@
 extern void setSockFdLogLevel (int logLevel);
 
 /** Convert domain name to IPv4 address */
-extern char *NameToHost (char *domain);
+extern char * NameToHost (char * domain);
 
 /** Create a server socket and return it
  * If an error occurs, return -1 */
@@ -19,7 +19,10 @@ extern int connectServ (unsigned long ip_addr, unsigned short host_port);
 
 /** Accept the client connection request and return the client socket
  * and save the client address information in the structure */
-extern int acceptClnt (int server_fd, struct sockaddr_in *clnt_addr);
+extern int acceptClnt (int server_fd, struct sockaddr_in * clnt_addr);
+
+/** create a epoll fd with server socket fd */
+extern int createServEpoll (int sock_fd);
 
 /** Sets the socket to skip the "time to wait" state when disconnected */
 extern void sockReuseAddr (int fd);

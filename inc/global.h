@@ -26,6 +26,7 @@
 
 #define MAXSLEEP        128
 #define BUF_SIZE        1024
+#define PAGE_4K         4096
 
 
 /** 定义树莓派CPU最大温湿度,越过此值定义为"不健康的运行状态"

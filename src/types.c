@@ -55,6 +55,8 @@ void defaultConfOptServ (ConfOptServ * co)
         return;
     co->bindIp = INADDR_ANY;
     co->bindPort = 9190;
+    co->httpPort = 8080;
+    co->sqlPort = 3306;
     co->modeSSL = true;
     co->modeDaemon = true;
 
@@ -62,4 +64,8 @@ void defaultConfOptServ (ConfOptServ * co)
     memset (co->servCert, 0, sizeof (co->servCert));
     memset (co->servKey, 0, sizeof (co->servKey));
     memset (co->pidFile, 0, sizeof (co->pidFile));
+    memset (co->sqlHost, 0, sizeof (co->sqlHost));
+    memset (co->sqlUser, 0, sizeof (co->sqlUser));
+    memset (co->sqlPass, 0, sizeof (co->sqlPass));
+    memset (co->sqlName, 0, sizeof (co->sqlName));
 }

@@ -15,7 +15,7 @@ void defaultConfServ (const char * file_path)
     setFiledLogLevel (conf_logLevel);
     int rw_fd = newOpen (file_path);
     if (rw_fd == -1) return;
-    char * default_msg_client[] =
+    char * default_msg_server[] =
             {
                     "\n",
                     "# This is the configuration file of project rainsd\n",
@@ -44,6 +44,10 @@ void defaultConfServ (const char * file_path)
                     "# Specify the port of the server to bind\n",
                     "# 指定服务器绑定的端口号\n",
                     "#BindPort = 9190\n",
+                    "\n",
+                    "# Specify the port of the server HTTP\n",
+                    "# 指定服务器HTTP端口号\n",
+                    "#HttpPort = 8080\n",
                     "\n\n\n",
                     "# set disable,default to explain how server communicate to client\n",
                     "# disable: disable SSL connection, use tcp only\n",
@@ -79,23 +83,49 @@ void defaultConfServ (const char * file_path)
                     "# default: 守护进程模式 \n",
                     "#DAEMON = default \n",
                     "\n",
+                    "# set MySQL Host\n",
+                    "# 设置 MySQL 服务器\n",
+                    "#SQLHOST = 127.0.0.1\n",
+                    "\n",
+                    "# set MySQL Port\n",
+                    "# 设置 MySQL 服务端口\n",
+                    "#SQLPORT = 3306\n",
+                    "\n",
+                    "# set MySQL User\n",
+                    "# 设置 MySQL 用户名\n",
+                    "#SQLUSER = root\n",
+                    "\n",
+                    "# set MySQL Pass (not recommend in conf file)\n",
+                    "# 设置 MySQL 密码 (不建议设置在配置文件里)\n",
+                    "#SQLPASS = mysql\n",
+                    "\n",
+                    "# set MySQL DataBase Name\n",
+                    "# 设置 MySQL 数据库名称\n",
+                    "#SQLNAME = rain\n",
+                    "\n",
                     "\n\n\n\n",
                     "# 配置文件优先级小于(主函数)运行参数!\n",
                     "BindAddr = 0.0.0.0\n",
                     "BindPort = 9190\n",
+                    "HttpPort = 8080\n",
                     "SSLMODE = default\n",
                     "CAFILE = /home/wubin/ssl/keys/einc_fun_root_ca.cer\n",
                     "SERVCERT = /home/wubin/ssl/keys/einc_fun.pem\n",
                     "SERVKEY = /home/wubin/ssl/keys/einc_fun.key\n",
                     "PIDFILE = disable\n",
                     "DAEMON = disable\n",
+                    "SQLHOST = 127.0.0.1\n",
+                    "SQLPORT = 3306\n",
+                    "SQLUSER = root\n",
+                    "SQLPASS = mysql\n",
+                    "SQLNAME = rain\n",
                     "\n"
             };
     /**
      * Remember to modify the loop condition
      * when you change the above array */
-    for (int i = 0; i < 73; i++)
-        write (rw_fd, default_msg_client[i], strlen (default_msg_client[i]));
+    for (int i = 0; i < 103; i++)
+        write (rw_fd, default_msg_server[i], strlen (default_msg_server[i]));
 
     close (rw_fd);
     errno = errno_save;
