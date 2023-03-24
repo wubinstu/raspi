@@ -228,7 +228,7 @@ FRecAtps = 7
         
     myprocess:
         daemonize,exitCleanupClnt,resetClnt
-        checkPidFileClnt,checkRootPermission,sigRegisterClient
+        checkPidFileClnt,checkRootPermission,sigRegisterClnt
         runTimeArgsClnt
 
    *mysock:

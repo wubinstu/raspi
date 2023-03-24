@@ -60,28 +60,21 @@ int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_q
     return serv;
 }
 
-int connectServ (unsigned long ip_addr, unsigned short host_port)
+int connectServ (server_info_t serverInfo)
 {
     int status;
     // to accept function's return value
-    int sock = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == -1)
+    serverInfo.fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverInfo.fd == -1)
     {
         perr (true, socket_fd_logLevel,
               "function socket returns -1 when called connectServ");
-        return sock;
+        return serverInfo.fd;
     }
-    // create a tcp socket
 
-    struct sockaddr_in addr;
-    // to storage server addr info
-    socklen_t addr_size = sizeof (addr);
-    memset (& addr, 0, (size_t) addr_size);
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = ip_addr;
-    addr.sin_port = htons (host_port);
+
     // send connection request
-    status = connect (sock, (struct sockaddr *) & addr, addr_size);
+    status = connect (serverInfo.fd, (struct sockaddr *) & serverInfo.addr, serverInfo.addr_len);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -90,9 +83,9 @@ int connectServ (unsigned long ip_addr, unsigned short host_port)
     }
     perr (true, LOG_INFO,
           "Successfully connected to server[%d] %s:%d",
-          sock, inet_ntoa (addr.sin_addr), ntohs (addr.sin_port));
+          serverInfo.fd, inet_ntoa (serverInfo.addr.sin_addr), ntohs (serverInfo.addr.sin_port));
 
-    return sock;
+    return serverInfo.fd;
 }
 
 int acceptClnt (int server_fd, struct sockaddr_in * clnt_addr)
@@ -160,6 +153,16 @@ int setSockFlag (int fd, int flags, bool isTrue)
         perr (true, socket_fd_logLevel,
               "function fcntl F_SETFL error when called set_fl");
     return val;
+}
+
+bool setSockBufSize (int fd, int snd_buf_len, int rcv_buf_len)
+{
+    socklen_t opt_len = sizeof (int);
+    if (setsockopt (fd, SOL_SOCKET, SO_SNDBUF, & snd_buf_len, opt_len) != 0)
+        return false;
+    if (setsockopt (fd, SOL_SOCKET, SO_RCVBUF, & rcv_buf_len, opt_len) != 0)
+        return false;
+    return true;
 }
 
 bool checkFd (int fd)

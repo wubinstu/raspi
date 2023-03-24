@@ -13,6 +13,9 @@
  * SIGQUIT -> myexit()
  * SIGHUP -> resetClnt()
  * SIGALARM -> resetClnt() */
-extern void sigRegisterClient ();
+extern void sigRegisterClnt ();
+
+/// TODO
+extern void sigRegisterServ ();
 
 #endif //__RSIGNAL_H_

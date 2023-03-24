@@ -18,30 +18,41 @@ int tryConnect (int led)
 {
     int errno_save = errno, num_sec;
     turn_off_led (led);
+    raspi_connect_server.addr.sin_addr.s_addr = config_client.servIp;
+    raspi_connect_server.addr.sin_port = htons (config_client.servPort);
+    raspi_connect_server.addr.sin_family = AF_INET;
+    raspi_connect_server.addr_len = sizeof (raspi_connect_server.addr);
 
     for (num_sec = 1; num_sec <= MAXSLEEP; num_sec <<= 1)
     {
         perr (true, LOG_INFO,
               "Trying to connect to the server...");
-        serv_fd = connectServ (config_client.servIp,
-                               config_client.servPort);
-        if (serv_fd == -1)
+        raspi_connect_server.fd = connectServ (raspi_connect_server);
+        if (raspi_connect_server.fd == -1)
         {
             perr (true, LOG_NOTICE,
                   "Miss Connection, Retry in %d secs",
                   num_sec);
             sleep (num_sec);
-        } else if (serv_fd > 0)
+        } else if (raspi_connect_server.fd > 0)
             break;
     }
+
+
+    perr (!setSockBufSize (raspi_connect_server.fd,
+                           SOCK_SND_BUF_SIZE,
+                           SOCK_RCV_BUF_SIZE), LOG_WARNING,
+          "function setSockBufSize return false when called tryConnect");
+
+
     errno = errno_save;
     if (num_sec > MAXSLEEP)return -1;
 
     errno_save = errno;
     turn_on_led (led);
 
-    setSockFlag (serv_fd, O_NONBLOCK, false);
-    sockNagle (serv_fd);
+    setSockFlag (raspi_connect_server.fd, O_NONBLOCK, false);
+    sockNagle (raspi_connect_server.fd);
     errno = errno_save;
     return 0;
 }
@@ -83,18 +94,18 @@ void sendData (int led)
         return;
     }
 
-    if (mode_ssl_client > client_ssl_disable)
-        write_len = SSL_write (ssl_serv_fd, & raspi_monit_data, sizeof (raspi_monit_data));
-    else write_len = write (serv_fd, & raspi_monit_data, sizeof (raspi_monit_data));
+    if (raspi_connect_server.sslEnable)
+        write_len = SSL_write (raspi_connect_server.ssl_fd, & raspi_monit_data, sizeof (raspi_monit_data));
+    else write_len = write (raspi_connect_server.fd, & raspi_monit_data, sizeof (raspi_monit_data));
 
 
     // write_len == -1 -> SIGPIPE -> exit,clean
     printf ("write done. len = %zd\n", write_len);
 
     alarm (10);  // set a timer
-    if (mode_ssl_client > client_ssl_disable)
-        read_len = SSL_read (ssl_serv_fd, status, 4);
-    else read_len = read (serv_fd, status, 4);
+    if (raspi_connect_server.sslEnable)
+        read_len = SSL_read (raspi_connect_server.ssl_fd, status, 4);
+    else read_len = read (raspi_connect_server.fd, status, 4);
     alarm (0);  // unset timer
     flash_led (led, 90);
 

@@ -39,14 +39,15 @@ int main (int argc, const char * argv[])
 {
 //    atexit (exitCleanupClnt);
     initPi ();  // init wiringPi lib
-    setServClnt (client);  // we are client
     confToVarClnt ();  // read conf file
     runTimeArgsClnt (argc, argv);  // Check Runtime parameters
+    memset (& raspi_connect_server, 0, sizeof (raspi_connect_server));
 
 
     // Check whether you have root privileges
-    if (!checkRootPermission ("To create pid file"))
-        return -1;
+    if (strcmp (config_client.pidFile, "disable") != 0)
+        if (!checkRootPermission ("To create pid file"))
+            return -1;
     // Ensure that only one program runs at the same time according to the PID file
     if (strcmp (config_client.pidFile, "default") == 0)
         checkPidFileServ (PID_FILE_CLIENT);
@@ -54,11 +55,8 @@ int main (int argc, const char * argv[])
         checkPidFileServ (NULL);
     else checkPidFileServ (config_client.pidFile);
 
-    if (strcmp (config_client.caFile, "default") == 0)
-        mode_ssl_client = client_ssl_empty;
-    else if (strcmp (config_client.caFile, "disable") == 0)
-        mode_ssl_client = client_ssl_disable;
-    else mode_ssl_client = client_ssl_only_ca;
+    if (config_client.sslMode > ssl_disable)
+        raspi_connect_server.sslEnable = true;
 
     if (config_client.modeDaemon)
         daemonize (PROJECT_CLIENT_NAME);
@@ -66,7 +64,7 @@ int main (int argc, const char * argv[])
     if (sigsetjmp(jmp_client_rest, true) != 0)
         confToVarClnt ();
     // Register signal processing function
-    sigRegisterClient ();
+    sigRegisterClnt ();
 
     // Trying to connect to the server
     if (tryConnect (LED_RED) == -1)
@@ -77,29 +75,29 @@ int main (int argc, const char * argv[])
     }
 
 
-    if (mode_ssl_client > client_ssl_disable)
+    if (raspi_connect_server.sslEnable)
     {
         int rtn_flag;
-        ctx_client_to_server = initSSL (client);
-        if (ctx_client_to_server == NULL) exitCleanupClnt ();
-        if (mode_ssl_client == client_ssl_only_ca)
+        raspi_connect_server.ssl_ctx = initSSL (false);
+        if (raspi_connect_server.ssl_ctx == NULL) exitCleanupClnt ();
+        if (config_client.sslMode == ssl_load_ca)
         {
-            rtn_flag = loadCA (ctx_client_to_server, config_client.caFile);
+            rtn_flag = loadCA (raspi_connect_server.ssl_ctx, config_client.caFile);
             if (!rtn_flag) exitCleanupClnt ();
         }
 
-        ssl_serv_fd = SSL_fd (ctx_client_to_server, serv_fd);
-        if (ssl_serv_fd == NULL) exitCleanupClnt ();
-        setClientVerify (ctx_client_to_server);
+        raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
+        if (raspi_connect_server.ssl_fd == NULL) exitCleanupClnt ();
+        setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
 
-        if (SSL_connect (ssl_serv_fd) == -1)
+        if (SSL_connect (raspi_connect_server.ssl_fd) == -1)
         {
             perr (true, LOG_ERR,
                   "Server authentication failed, connection disconnected");
             exitCleanupClnt ();
         }
         printf ("Peer Cert:\n");
-        showPeerCert (ssl_serv_fd);
+        showPeerCert (raspi_connect_server.ssl_fd);
     }
 
 

@@ -15,7 +15,7 @@ extern char * NameToHost (char * domain);
 extern int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_queue);
 
 /** Specify the address and port, try to connect and return the socket */
-extern int connectServ (unsigned long ip_addr, unsigned short host_port);
+extern int connectServ (server_info_t serverInfo);
 
 /** Accept the client connection request and return the client socket
  * and save the client address information in the structure */
@@ -32,6 +32,9 @@ extern void sockNagle (int fd);
 
 /** Sets whether the socket has the "flag" attribute and return flag */
 extern int setSockFlag (int fd, int flags, bool isTrue);
+
+/** Set socket buffer */
+extern bool setSockBufSize (int fd, int snd_buf_len, int rcv_buf_len);
 
 /** Check whether the file descriptor is valid  */
 extern bool checkFd (int fd);

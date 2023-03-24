@@ -14,11 +14,11 @@
 
 
 /** Initialize with SSLv23 */
-extern SSL_CTX * initSSL (enum ServClnt servClnt);
+extern SSL_CTX * initSSL (bool true_for_server_false_for_client);
 
 /** server always load ca cert,user cert,user private key
  * but client need not,client can load 1.NONE, 2.ca, 3.ca_cert & user_cert & user_key */
-extern void setClientVerify (SSL_CTX * sslCtx);
+extern void setVerifyPeer (SSL_CTX * sslCtx, bool verifyPeer);
 
 /** Load the CA certificate of the specified path */
 extern bool loadCA (SSL_CTX * sslCtx, const char * CA_path);

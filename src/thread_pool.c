@@ -158,7 +158,7 @@ void * thread_pool_process (void * args)
 
 
             /// TODO free task struct
-            free (task->client->mysql);
+            free (task->client);
             free (task);
         }
 

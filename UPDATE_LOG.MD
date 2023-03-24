@@ -4,6 +4,9 @@
 1. 服务器正式开发, 配置文件接入, 运行参数接入
 2. 引入POSIX线程池技术, 引入MySQL连接池技术
 3. 确认服务器模型为: epoll + POSIX线程池 + MySQL连接池
+4. 将松散的全局变量 serv_fd,ssl_serv_fd 等打包成 server_info_t 结构体
+5. 移除松散杂乱的 mode_ssl_client, mode_server_client 等全局变量和枚举
+6. 将客户端的 SSLMode 移动到配置文件结构体内部
 ```
 
 ### 版本 1.6.3 更新汇总

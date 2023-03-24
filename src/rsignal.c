@@ -8,7 +8,12 @@
 #include "global.h"
 #include "log.h"
 
-void sigHandlerClient (int signo, siginfo_t * siginfo, void * context)
+void sigHandlerServ (int signo, siginfo_t * siginfo, void * context)
+{
+
+}
+
+void sigHandlerClnt (int signo, siginfo_t * siginfo, void * context)
 {
     SIGALRM, SIGHUP, SIGPIPE;  // reset
     SIGINT, SIGQUIT, SIGTERM, SIGABRT, SIGSEGV; // exit
@@ -87,7 +92,12 @@ void sigHandlerClient (int signo, siginfo_t * siginfo, void * context)
     psignal (signo, "other");
 }
 
-void sigRegisterClient ()
+void sigRegisterServ ()
+{
+
+}
+
+void sigRegisterClnt ()
 {
     // define vars
     struct sigaction act;
@@ -95,7 +105,7 @@ void sigRegisterClient ()
     memset (& act, 0, sizeof (struct sigaction));
     sigfillset (& act.sa_mask);
     act.sa_flags = SA_INTERRUPT | SA_SIGINFO;
-    act.sa_sigaction = sigHandlerClient;
+    act.sa_sigaction = sigHandlerClnt;
 
     // 各种退出信号, 清理后退出
     sigaction (SIGINT, & act, NULL);

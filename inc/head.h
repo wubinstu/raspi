@@ -31,6 +31,11 @@
 #include <sys/resource.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
-#include <mysql/mysql.h>
+
+// socket 网络套接字缓冲区大小
+//发送缓冲区大小 = 带宽 * 往返时延
+//接收缓冲区大小 = 发送缓冲区大小 * 2
+#define SOCK_SND_BUF_SIZE   64 * 1024
+#define SOCK_RCV_BUF_SIZE   128 * 1024
 
 #endif

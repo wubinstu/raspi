@@ -44,7 +44,7 @@ add_library(rsignal ${LIB_TYPE} src/rsignal.c)
 add_library(rssl ${LIB_TYPE} src/rssl.c src/global.c src/log.c)
 add_library(run_client ${LIB_TYPE} src/run_client.c)
 add_library(run_server ${LIB_TYPE} src/run_server.c)
-add_library(self_sql ${LIB_TYPE} src/self_sql.c)
+add_library(self_sql ${LIB_TYPE} src/log.c src/self_sql.c)
 add_library(self_thread ${LIB_TYPE} src/log.c src/self_thread.c)
 add_library(socket_fd ${LIB_TYPE} src/socket_fd.c src/global.c src/log.c)
 add_library(sql_pool ${LIB_TYPE} src/sql_pool.c)
@@ -63,18 +63,18 @@ endif ()
 
 target_link_libraries(rssl crypto ssl)
 target_link_libraries(conf arr filed linklist)
-target_link_libraries(load_clean conf raspi_drive rssl socket_fd)
+target_link_libraries(load_clean conf raspi_drive rssl socket_fd sql_pool thread_pool)
 target_link_libraries(rsignal load_clean)
 target_link_libraries(run_client load_clean)
 
 target_link_libraries(self_sql mysqlclient)
 target_link_libraries(self_thread pthread)
-target_link_libraries(sql_pool self_sql)
+target_link_libraries(sql_pool self_sql self_thread)
 target_link_libraries(thread_pool self_thread)
 
 
 target_link_libraries(rain_client rsignal run_client)
-target_link_libraries(rain_server load_clean thread_pool)
+target_link_libraries(rain_server rsignal run_server load_clean sql_pool thread_pool)
 
 
 set(systemdUnit /usr/lib/systemd/system)

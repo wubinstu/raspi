@@ -10,7 +10,10 @@
 #include "socket_fd.h"
 #include "rssl.h"
 #include "raspi_drive.h"
-
+#include "self_sql.h"
+#include "self_thread.h"
+#include "sql_pool.h"
+#include "thread_pool.h"
 
 void daemonize (const char * cmd)
 {
@@ -152,15 +155,15 @@ void runTimeArgsServ (int argc, const char * argv[])
         } else if (strcmp (args, "--sslmode") == 0)
         {
             if (strcmp (value, "default") == 0)
-                mode_ssl_server = server_ssl_enable;
+                config_server.modeSSL = true;
             else if (strcmp (value, "disable") == 0)
-                mode_ssl_server = server_ssl_disable;
+                config_server.modeSSL = false;
             else
             {
                 perr (true, LOG_ERR,
                       "Invalid value option %s=%s,use default instead",
                       args, value);
-                mode_ssl_server = server_ssl_enable;
+                config_server.modeSSL = true;
             }
             continue;
         } else if (strcmp (args, "--cafile") == 0)
@@ -372,6 +375,11 @@ void runTimeArgsClnt (int argc, const char * argv[])
         } else if (strcmp (args, "--cafile") == 0)
         {
             strcpy (config_client.caFile, value);
+            if (strcmp (config_client.caFile, "default") == 0)
+                config_client.sslMode = ssl_load_none;
+            else if (strcmp (config_client.caFile, "disable") == 0)
+                config_client.sslMode = ssl_disable;
+            else config_client.sslMode = ssl_load_ca;
             continue;
         } else if (strcmp (args, "--pidfile") == 0)
         {
@@ -590,15 +598,15 @@ void confToVarServ ()
         } else if (strcmp (e[i].name, "SSLMODE") == 0)
         {
             if (strcmp (e[i].value, "default") == 0)
-                mode_ssl_server = server_ssl_enable;
+                config_server.modeSSL = true;
             else if (strcmp (e[i].value, "disable") == 0)
-                mode_ssl_server = server_ssl_disable;
+                config_server.modeSSL = false;
             else
             {
                 perr (true, LOG_ERR,
                       "Invalid value option %s=%s,use default instead",
                       e[i].name, e[i].value);
-                mode_ssl_server = server_ssl_enable;
+                config_server.modeSSL = true;
             }
             continue;
         } else if (strcmp (e[i].name, "CAFILE") == 0)
@@ -749,6 +757,11 @@ void confToVarClnt ()
         } else if (strcmp (e[i].name, "CAFILE") == 0)
         {
             strcpy (config_client.caFile, e[i].value);
+            if (strcmp (config_client.caFile, "default") == 0)
+                config_client.sslMode = ssl_load_none;
+            else if (strcmp (config_client.caFile, "disable") == 0)
+                config_client.sslMode = ssl_disable;
+            else config_client.sslMode = ssl_load_ca;
             continue;
         } else if (strcmp (e[i].name, "PIDFILE") == 0)
         {
@@ -810,6 +823,11 @@ void exitCleanupServ ()
             unlink (pid_file);
     }
     fflush (NULL);
+
+    sql_pool_destroy (sql_pool_accept_raspi);
+    thread_pool_destroy (thread_pool_accept_raspi);
+    thread_pool_destroy (thread_pool_accept_http);
+    mysql_lib (false);
     exit (0);
 }
 
@@ -871,20 +889,20 @@ bool checkRootPermission (const char * require_reason)
 
 void sendFINtoServ ()
 {
-    if (mode_ssl_client > client_ssl_disable)
-        SSL_write (ssl_serv_fd, "FIN", 4);
-    else write (serv_fd, "FIN", 4);
+    if (raspi_connect_server.sslEnable)
+        SSL_write (raspi_connect_server.ssl_fd, "FIN", 4);
+    else write (raspi_connect_server.fd, "FIN", 4);
 }
 
 void downLightsCloseServ ()
 {
-    if (mode_ssl_client > client_ssl_disable)
+    if (raspi_connect_server.sslEnable)
     {
-        SSL_shutdown (ssl_serv_fd);
-        SSL_free (ssl_serv_fd);
-        SSL_CTX_free (ctx_client_to_server);
+        SSL_shutdown (raspi_connect_server.ssl_fd);
+        SSL_free (raspi_connect_server.ssl_fd);
+        SSL_CTX_free (raspi_connect_server.ssl_ctx);
     }
-    close (serv_fd), serv_fd = -1;
+    close (raspi_connect_server.fd), raspi_connect_server.fd = -1;
     turn_off_led (LED_GRE);
     turn_off_led (LED_RED);
     turn_off_led (LED_YEL);

@@ -49,10 +49,7 @@ void perr (bool condition, int logLevel, const char * message, ...)
         va_start(args, message);
         vsprintf (storage_args, with_prefix, args);
         va_end(args);
-        char * project_name;
-        if (mode_serv_clnt == server)project_name = PROJECT_SERVER_NAME;
-        if (mode_serv_clnt == client)project_name = PROJECT_CLIENT_NAME;
-        openlog (project_name, LOG_CONS | LOG_PID, LOG_DAEMON);
+        openlog (PROJECT_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
         syslog (logLevel, "%s", storage_args);
         closelog ();
         printf ("%s\n", storage_args);

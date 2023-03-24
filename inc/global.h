@@ -46,13 +46,16 @@
 #define PID_FILE_SERVER     "/var/run/rain_server.pid"
 #define TEMP_PATH           "/sys/class/thermal/thermal_zone0/temp"
 
+// 线程池, 连接池 相关参数
+//线程数量最小值 = CPU核心数 + 1
+//线程数量最大值 = CPU核心数 * (1 + 平均等待时间 / 平均执行时间)
+//线程任务队列最大值 = (maximumPoolSize - corePoolSize) * 平均执行时间 / 平均等待时间
+#define THREAD_POOL_MAX     20
+#define THREAD_POOL_MIN     5
+#define THREAD_POOL_QUEUE   20
+#define SQL_POOL_MAX        20
+#define SQL_POOL_MIN        5
 
-/** to let some function know it's works for server/client */
-extern enum ServClnt mode_serv_clnt;
-/** to let server and client know the way to ssl connect */
-extern enum ClntSSL mode_ssl_client;
-/** to let client and server know the way to ssl connect */
-extern enum ServSSL mode_ssl_server;
 
 extern int filed_logLevel;
 extern int rssl_logLevel;
@@ -65,25 +68,19 @@ extern ConfOptServ config_server;
 /** a structural with CPU/environmental temperature,ultrasonic distance,etc */
 extern RaspiMonitData raspi_monit_data;
 
+extern server_info_t raspi_connect_server;
+extern server_info_t server_accept_raspi;
+extern server_info_t server_accept_http;
+
+extern sql_pool_t * sql_pool_accept_raspi;
+extern thread_pool_t * thread_pool_accept_raspi;
+extern thread_pool_t * thread_pool_accept_http;
 
 /** pid file fd */
 extern int pid_file_fd;
-/** server socket fd */
-extern int serv_fd;
-/** server socket ssl fd */
-extern SSL * ssl_serv_fd;
-/** a ssl ctx_client_to_server handler */
-extern SSL_CTX * ctx_client_to_server;
-
-/** check pid file and enable ssl connection */
-extern bool mode_strict;
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;
 extern jmp_buf jmp_server_rest;
-
-extern void setServClnt (enum ServClnt m);
-
-extern void set_ssl_client (enum ClntSSL m);
 
 #endif //__GLOBAL_H_

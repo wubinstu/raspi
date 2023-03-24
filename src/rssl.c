@@ -7,24 +7,21 @@
 #include "log.h"
 
 
-SSL_CTX * initSSL (enum ServClnt servClnt)
+SSL_CTX * initSSL (bool true_for_server_false_for_client)
 {
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
-    if (servClnt == server)
+    if (true_for_server_false_for_client)
         return SSL_CTX_new (SSLv23_server_method ());
-    if (servClnt == client)
-        return SSL_CTX_new (SSLv23_client_method ());
-    return NULL;
+    else return SSL_CTX_new (SSLv23_client_method ());
 }
 
-void setClientVerify (SSL_CTX * sslCtx)
+void setVerifyPeer (SSL_CTX * sslCtx, bool verifyPeer)
 {
-    if (mode_ssl_client == client_ssl_empty)
-        SSL_CTX_set_verify (sslCtx, SSL_VERIFY_NONE, NULL);
-    if (mode_ssl_client == client_ssl_only_ca)
+    if (verifyPeer)
         SSL_CTX_set_verify (sslCtx, SSL_VERIFY_PEER, NULL);
+    else SSL_CTX_set_verify (sslCtx, SSL_VERIFY_NONE, NULL);
 }
 
 bool loadCA (SSL_CTX * sslCtx, const char * CA_path)
