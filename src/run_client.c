@@ -18,10 +18,13 @@ int tryConnect (int led)
 {
     int errno_save = errno, num_sec;
     turn_off_led (led);
+    memset (& raspi_connect_server, 0, sizeof (raspi_connect_server));
     raspi_connect_server.addr.sin_addr.s_addr = config_client.servIp;
     raspi_connect_server.addr.sin_port = htons (config_client.servPort);
     raspi_connect_server.addr.sin_family = AF_INET;
     raspi_connect_server.addr_len = sizeof (raspi_connect_server.addr);
+    if (config_client.sslMode > ssl_disable)
+        raspi_connect_server.sslEnable = true;
 
     for (num_sec = 1; num_sec <= MAXSLEEP; num_sec <<= 1)
     {
@@ -55,6 +58,33 @@ int tryConnect (int led)
     sockNagle (raspi_connect_server.fd);
     errno = errno_save;
     return 0;
+}
+
+void loadSSLClnt ()
+{
+    if (!raspi_connect_server.sslEnable)
+        return;
+    raspi_connect_server.ssl_ctx = initSSL (false);
+    if (raspi_connect_server.ssl_ctx == NULL) exitCleanupClnt ();
+    if (config_client.sslMode == ssl_load_ca)
+    {
+        int rtn_flag = loadCA (raspi_connect_server.ssl_ctx, config_client.caFile);
+        if (!rtn_flag) exitCleanupClnt ();
+    }
+
+    raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
+    if (raspi_connect_server.ssl_fd == NULL) exitCleanupClnt ();
+    setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
+
+    if (SSL_connect (raspi_connect_server.ssl_fd) == -1)
+    {
+        perr (true, LOG_ERR,
+              "Server authentication failed, connection disconnected");
+        exitCleanupClnt ();
+    }
+    printf ("Peer Cert:\n");
+    showPeerCert (raspi_connect_server.ssl_fd);
+
 }
 
 void checkMonit ()

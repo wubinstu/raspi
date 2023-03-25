@@ -4,7 +4,6 @@
 #include "filed.h"
 #include "global.h"
 #include "log.h"
-#include "linklist.h"
 
 // 定义此文件中的函数在运行时发生错误时默认使用的消息等级,并且默认不设置setter
 static int conf_logLevel = LOG_WARNING;
@@ -212,7 +211,7 @@ void defaultConfClnt (const char * file_path)
     errno = errno_save;
 }
 
-LNode readConf (const char * file_path)
+PLinkNode readConf (const char * file_path)
 {
     int errno_save = errno;
     setFiledLogLevel (conf_logLevel);
@@ -225,7 +224,7 @@ LNode readConf (const char * file_path)
         return NULL;
     }
 
-    LNode L;
+    PLinkNode L;
     KeyValuePair e;
     char line[200] = {'\0'};  // 用于保存配置行
     char key[100] = {'\0'}; // 用于保存键值对中的键
@@ -279,13 +278,13 @@ bool checkConf (const char * file_path)
     return flag;
 }
 
-bool checkRead (LNode L)
+bool checkRead (PLinkNode L)
 {
     int errno_save = errno;
     bool flag = (L->next != NULL);
     if (flag)
     {
-        LNode master = L->next;
+        PLinkNode master = L->next;
         while (master != NULL)
         {
             if (notASCII (master->opt->name) || notASCII (master->opt->value))

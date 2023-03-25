@@ -41,7 +41,6 @@ int main (int argc, const char * argv[])
     initPi ();  // init wiringPi lib
     confToVarClnt ();  // read conf file
     runTimeArgsClnt (argc, argv);  // Check Runtime parameters
-    memset (& raspi_connect_server, 0, sizeof (raspi_connect_server));
 
 
     // Check whether you have root privileges
@@ -55,8 +54,6 @@ int main (int argc, const char * argv[])
         checkPidFileServ (NULL);
     else checkPidFileServ (config_client.pidFile);
 
-    if (config_client.sslMode > ssl_disable)
-        raspi_connect_server.sslEnable = true;
 
     if (config_client.modeDaemon)
         daemonize (PROJECT_CLIENT_NAME);
@@ -74,32 +71,7 @@ int main (int argc, const char * argv[])
         exitCleanupClnt ();
     }
 
-
-    if (raspi_connect_server.sslEnable)
-    {
-        int rtn_flag;
-        raspi_connect_server.ssl_ctx = initSSL (false);
-        if (raspi_connect_server.ssl_ctx == NULL) exitCleanupClnt ();
-        if (config_client.sslMode == ssl_load_ca)
-        {
-            rtn_flag = loadCA (raspi_connect_server.ssl_ctx, config_client.caFile);
-            if (!rtn_flag) exitCleanupClnt ();
-        }
-
-        raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
-        if (raspi_connect_server.ssl_fd == NULL) exitCleanupClnt ();
-        setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
-
-        if (SSL_connect (raspi_connect_server.ssl_fd) == -1)
-        {
-            perr (true, LOG_ERR,
-                  "Server authentication failed, connection disconnected");
-            exitCleanupClnt ();
-        }
-        printf ("Peer Cert:\n");
-        showPeerCert (raspi_connect_server.ssl_fd);
-    }
-
+    loadSSLClnt ();
 
     while (true)
     {

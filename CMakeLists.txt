@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(rain VERSION 1.5.2 LANGUAGES C)
 
-set(SIMULATOR false)
+set(SIMULATOR true)
 set(CMAKE_INSTALL_PREFIX /usr/local)
 set(CMAKE_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(CMAKE_INSTALL_CONF_DIR ${CMAKE_INSTALL_PREFIX}/etc)
@@ -28,16 +28,16 @@ set(EXECUTABLE_OUTPUT_PATH bin)
 include_directories(inc)
 #target_include_directories(inc)
 set(LIBRARY_OUTPUT_PATH lib)
-link_directories(lib)
-#link_directories(../lib)
+link_directories(lib /usr/lib/ /usr/lib64/mysql)
+
+find_package(OpenSSL REQUIRED)
 
 # add lib
 set(LIB_TYPE STATIC)
 
 add_library(arr ${LIB_TYPE} src/arr.c)
-add_library(conf ${LIB_TYPE} src/conf.c)
+add_library(conf ${LIB_TYPE} src/conf.c src/types.c)
 add_library(filed ${LIB_TYPE} src/filed.c src/global.c src/log.c)
-add_library(linklist ${LIB_TYPE} src/linklist.c src/global.c src/types.c)
 add_library(load_clean ${LIB_TYPE} src/load_clean.c)
 add_library(raspi_drive ${LIB_TYPE} src/raspi_drive.c src/global.c src/log.c)
 add_library(rsignal ${LIB_TYPE} src/rsignal.c)
@@ -62,10 +62,11 @@ if (NOT ${SIMULATOR})
 endif ()
 
 target_link_libraries(rssl crypto ssl)
-target_link_libraries(conf arr filed linklist)
+target_link_libraries(conf arr filed)
 target_link_libraries(load_clean conf raspi_drive rssl socket_fd sql_pool thread_pool)
 target_link_libraries(rsignal load_clean)
 target_link_libraries(run_client load_clean)
+target_link_libraries(run_server load_clean)
 
 target_link_libraries(self_sql mysqlclient)
 target_link_libraries(self_thread pthread)
@@ -74,7 +75,7 @@ target_link_libraries(thread_pool self_thread)
 
 
 target_link_libraries(rain_client rsignal run_client)
-target_link_libraries(rain_server rsignal run_server load_clean sql_pool thread_pool)
+target_link_libraries(rain_server rsignal run_server sql_pool thread_pool)
 
 
 set(systemdUnit /usr/lib/systemd/system)

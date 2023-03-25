@@ -17,26 +17,18 @@ char * NameToHost (char * domain)
     return inet_ntoa (* (struct in_addr *) host->h_addr_list[0]);
 }
 
-int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_queue)
+int createServSock (server_info_t serverInfo)
 {
     int status;
     // to accept function's return value
-    int serv = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serv == -1)
+    serverInfo.fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverInfo.fd == -1)
     {
         perr (true, socket_fd_logLevel,
               "function socket returns -1 when called createServSock");
         return -1;
     }
-    // create a tcp socket
-
-    struct sockaddr_in serv_addr;
-    // to storage server addr info
-    memset (& serv_addr, 0, sizeof (serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = ip_addr;//htonl(ip_addr);
-    serv_addr.sin_port = htons (host_port);
-    status = bind (serv, (struct sockaddr *) & serv_addr, sizeof (serv_addr));
+    status = bind (serverInfo.fd, (struct sockaddr *) & serverInfo.addr, serverInfo.addr_len);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -45,7 +37,7 @@ int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_q
     }
     // bind addr info to socket
 
-    status = listen (serv, listen_queue);
+    status = listen (serverInfo.fd, SOMAXCONN);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -55,9 +47,9 @@ int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_q
     // SERVER socket created!
     perr (true, LOG_INFO,
           "Server Socket Created, fd = %d, port = %d",
-          serv, ntohs (serv_addr.sin_port));
+          serverInfo.fd, ntohs (serverInfo.addr.sin_port));
 
-    return serv;
+    return serverInfo.fd;
 }
 
 int connectServ (server_info_t serverInfo)

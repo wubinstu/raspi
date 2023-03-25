@@ -9,13 +9,13 @@
 #ifndef __CONF_H_
 #define __CONF_H_
 
-#include "linklist.h"
+#include "types.h"
 
 /**
  * Read the configuration file and write the content to the linked list,
  * and then return the address of the first node of the linked list.
  * If the reading fails, return null */
-extern LNode readConf (const char * file_path);
+extern PLinkNode readConf (const char * file_path);
 
 
 /**
@@ -38,6 +38,6 @@ extern bool checkConf (const char * file_path);
  * If there are non ASCII characters, return false.
  * Therefore, return true if and only if the linked list is not empty and there are no non ASCII characters in all node data fields.
  * Note: for the whole program, this is only a preliminary judgment, and whether the data fully meet the requirements is not judged */
-extern bool checkRead (LNode L);
+extern bool checkRead (PLinkNode L);
 
 #endif

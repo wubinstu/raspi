@@ -12,7 +12,7 @@ extern char * NameToHost (char * domain);
 
 /** Create a server socket and return it
  * If an error occurs, return -1 */
-extern int creatServSock (unsigned long ip_addr, unsigned short host_port, int listen_queue);
+extern int createServSock (server_info_t serverInfo);
 
 /** Specify the address and port, try to connect and return the socket */
 extern int connectServ (server_info_t serverInfo);

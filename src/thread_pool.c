@@ -23,8 +23,16 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
 
     pool->queue_max = queue_max_num;
     pool->queue_cur = 0;
-    pool->queue_head = NULL;
-    pool->queue_tail = NULL;
+    pool->queue_head = 0;
+    pool->queue_tail = 0;
+
+    pool->queue = (thread_task_t *) calloc (queue_max_num, sizeof (thread_task_t));
+    if (pool->queue == NULL)
+    {
+        perr (true, LOG_WARNING,
+              "function calloc(pool->queue) returns NULL when called thread_pool_init");
+        return NULL;
+    }
 
     if (create_default_mutex (& pool->lock) == NULL)
     {
@@ -98,12 +106,7 @@ void thread_pool_destroy (thread_pool_t * pool)
         if (alive == 0 && !is_alive_manager_thread)
             break;
     }
-    while (pool->queue_head != NULL)
-    {
-        task = pool->queue_head;
-        pool->queue_head = pool->queue_head->next;
-        free (task);
-    }
+    free (pool->queue);
     pthread_mutex_destroy (& pool->lock);
     pthread_cond_destroy (& pool->not_empty);
     pthread_cond_destroy (& pool->not_full);
@@ -140,26 +143,32 @@ void * thread_pool_process (void * args)
             break;
         }
 
-        task = pool->queue_head;
-        pool->queue_head = pool->queue_head->next;
-        if (pool->queue_head == NULL && pool->queue_tail == task)
-            pool->queue_tail = NULL;  // 最后一个元素时更新尾指针
+        if (pool->queue_cur != 0)  // 确保程序安全, 实际上这个条件是必然满足的
+        {
+            task = & pool->queue[pool->queue_head];
+            pool->queue_head = (pool->queue_head + 1) % pool->queue_max;
+            pool->queue_cur--;
+            pthread_cond_signal (& pool->not_full);
+        } else task = NULL;  // 这句分支语句理论上不会被执行
 
-        pool->queue_cur--;
         pool->thread_busy++;
-        pthread_cond_signal (& pool->not_full);
         pthread_mutex_unlock (& pool->lock);
 
         if (task != NULL)
         {
+            task->ptime = time (NULL);
+            task->process_thread = pthread_self ();
+            task->state = onProcessing;
 
             /// TODO deal with task
             (* task->func) (task->args);
 
 
             /// TODO free task struct
-            free (task->client);
-            free (task);
+            task->state = ignorable;
+//            free (task->client);
+//            free (task);
+
         }
 
         lock_robust_mutex (& pool->lock);
@@ -243,12 +252,23 @@ bool thread_pool_add_task (thread_pool_t * pool, thread_task_t * task)
     lock_robust_mutex (& pool->lock);
     while (pool->queue_cur == pool->queue_max)
         pthread_cond_wait (& pool->not_full, & pool->lock);
-    if (pool->queue_head == NULL && pool->queue_tail == NULL)
-        pool->queue_head = task;
-    else pool->queue_tail->next = task;
-    pool->queue_tail = task;
-    pool->queue_cur++;
-    pthread_cond_signal (& pool->not_empty);
+
+
+    if (pool->queue_cur < pool->queue_max)  // 理论上本条件必然满足
+    {
+        task->atime = time (NULL);
+        if (task->state != newlyBuild)
+            task->state = newlyBuild;
+
+        /**
+         * 这里我们有queue_max,queue_cur表示队列状态
+         * 所以不需要"head == tail 队空", "(head + 1) % max == tail 队满"这样判断*/
+        pool->queue[pool->queue_tail] = * task;
+        pool->queue_tail = (pool->queue_tail + 1) % pool->queue_max;
+        pool->queue_cur++;
+        pthread_cond_signal (& pool->not_empty);
+    }
+
     pthread_mutex_unlock (& pool->lock);
     return true;
 }

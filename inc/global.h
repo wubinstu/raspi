@@ -56,6 +56,9 @@
 #define SQL_POOL_MAX        20
 #define SQL_POOL_MIN        5
 
+// 用来创建客户端结构体哈希表, 大小需要设置为素数
+#define HASH_MAP_SIZE      1999
+
 
 extern int filed_logLevel;
 extern int rssl_logLevel;
@@ -75,6 +78,8 @@ extern server_info_t server_accept_http;
 extern sql_pool_t * sql_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_http;
+
+extern hash_map_t * hash_map_raspi;
 
 /** pid file fd */
 extern int pid_file_fd;

@@ -550,7 +550,7 @@ void confToVarServ ()
     if (!checkConf (CONF_FILE_SERVER))
         defaultConfServ (CONF_FILE_SERVER),
                 exitCleanupServ ();
-    LNode conf = readConf (CONF_FILE_SERVER);
+    PLinkNode conf = readConf (CONF_FILE_SERVER);
     checkRead (conf);
 
     KeyValuePair e[LengthOfLinkList (conf)];
@@ -710,7 +710,7 @@ void confToVarClnt ()
     if (!checkConf (CONF_FILE_CLIENT))
         defaultConfClnt (CONF_FILE_CLIENT),
                 exitCleanupClnt ();
-    LNode conf = readConf (CONF_FILE_CLIENT);
+    PLinkNode conf = readConf (CONF_FILE_CLIENT);
     checkRead (conf);
 
     KeyValuePair e[LengthOfLinkList (conf)];

@@ -12,6 +12,8 @@
  * set server socket to no blocking and enable nagle */
 extern int tryConnect (int led);
 
+extern void loadSSLClnt ();
+
 /** [NO RETURN] Continuous monitoring and data acquisition */
 extern void checkMonit ();
 

@@ -18,9 +18,11 @@ server_info_t raspi_connect_server;
 server_info_t server_accept_raspi;
 server_info_t server_accept_http;
 
-sql_pool_t * sql_pool_accept_raspi;
-thread_pool_t * thread_pool_accept_raspi;
-thread_pool_t * thread_pool_accept_http;
+sql_pool_t * sql_pool_accept_raspi = NULL;
+thread_pool_t * thread_pool_accept_raspi = NULL;
+thread_pool_t * thread_pool_accept_http = NULL;
+
+hash_map_t * hash_map_raspi = NULL;
 
 int pid_file_fd = -1;
 

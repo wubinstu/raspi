@@ -55,5 +55,7 @@ dkms.conf
 #self defined rules
 .clion.source.upload.marker
 build
+build_aliyun
+build_raspi
 bin
 .vscode

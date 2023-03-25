@@ -232,10 +232,10 @@ FRecAtps = 7
         runTimeArgsClnt
 
    *mysock:
-        NameToHost,creatServSock,connectServ
+        NameToHost,createServSock,connectServ
         acceptClnt,sockReuseAddr,sockNagle
     mysockd:
-        setFiledLogLevel,NameToHost,creatServSock
+        setFiledLogLevel,NameToHost,createServSock
         connectServ,acceptClnt,sockReuseAddr
         sockNagle,setSockFlag,checkFd
         
@@ -257,6 +257,6 @@ FRecAtps = 7
         procbar,procbar_f,isDebugger
 
     types:
-        setElem,delElem,catElem
-        catElems
+        setPair,delPair,catPair
+        catPairs
 ```
