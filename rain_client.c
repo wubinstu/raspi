@@ -74,6 +74,7 @@ int main (int argc, const char * argv[])
     loadSSLClnt ();
 
     negotiateUUID ();
+    sleep (3);
 
     while (true)
     {

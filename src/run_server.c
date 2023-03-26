@@ -77,7 +77,7 @@ void loadSSLServ ()
 
         server_accept_raspi.ssl_fd = SSL_fd (server_accept_raspi.ssl_ctx, server_accept_raspi.fd);
         if (server_accept_raspi.ssl_fd == NULL) exitCleanupServ ();
-        setVerifyPeer (server_accept_raspi.ssl_ctx, false);
+//        setVerifyPeer (server_accept_raspi.ssl_ctx, false);
     }
     if (server_accept_http.sslEnable)
     {
@@ -98,7 +98,7 @@ void loadSSLServ ()
 
         server_accept_http.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, server_accept_http.fd);
         if (server_accept_http.ssl_fd == NULL) exitCleanupServ ();
-        setVerifyPeer (server_accept_http.ssl_ctx, false);
+//        setVerifyPeer (server_accept_http.ssl_ctx, false);
     }
 }
 
@@ -106,17 +106,21 @@ void negotiateUUID (client_info_t * clientInfo)
 {
     uuid_t uuid_client;
     char uuid_client_string[40];
+    memset (uuid_client, 0, sizeof (uuid_t));
+    memset (uuid_client_string, 0, sizeof (uuid_client_string));
+
     readClient (* clientInfo, uuid_client, sizeof (uuid_t));
     if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
         uuid_generate (uuid_client),
                 writeClient (* clientInfo, uuid_client, sizeof (uuid_t));
     memcpy (clientInfo->id, uuid_client, sizeof (uuid_t));
 
-    uuid_unparse (uuid_client, uuid_client_string);
+    uuid_unparse (clientInfo->id, uuid_client_string);
 
-    perr (true, LOG_INFO, "client[%d] form %s:%d UUID: %s",
-          clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr),
-          ntohs (clientInfo->addr.sin_port), (char *) uuid_client_string);
+    perr (true, LOG_INFO, "UUID: %s for client[%d] form %s:%d",
+          (char *) uuid_client_string, clientInfo->fd,
+          inet_ntoa (clientInfo->addr.sin_addr),
+          ntohs (clientInfo->addr.sin_port));
 
 }
 
@@ -167,39 +171,23 @@ void eventPoll (server_info_t serverInfo)
                 }
                 // 设置客户端套接字: 非阻塞
                 setSockFlag (client_ev.data.fd, O_NONBLOCK, true);
-                client_ev.events = EPOLLIN | EPOLLET;
+                client_ev.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLHUP;
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_ADD, client_ev.data.fd, & client_ev);
                 perr (true, LOG_INFO,
                       "eventPoll: accept a client[%d] form %s:%d",
                       client_ev.data.fd, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port));
                 client_hash_node = calloc (1, sizeof (hash_node_t));
-                if (serverInfo.sslEnable)
-                {
-                    client_hash_node->clientInfo.sslEnable = true;
-                    client_hash_node->clientInfo.ssl_fd = SSL_new (serverInfo.ssl_ctx);
-                    SSL_set_fd (client_hash_node->clientInfo.ssl_fd, client_ev.data.fd);
 
-                    if (SSL_accept (client_hash_node->clientInfo.ssl_fd) == -1)
-                    {
-                        perr (true, LOG_INFO,
-                              "eventPoll: SSL_accept failed: client[%d] form %s:%d",
-                              client_ev.data.fd, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port));
-                        free (client_hash_node);
-                        epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, client_ev.data.fd, & client_ev);
-                        close (client_ev.data.fd);
 
-                        continue;
-                    }
-
-                }
                 client_hash_node->next = NULL;
+                client_hash_node->clientInfo.ssl_fd = NULL;
+                client_hash_node->clientInfo.sslEnable = false;
                 client_hash_node->hash_node_key = client_ev.data.fd;
                 client_hash_node->clientInfo.fd = client_ev.data.fd;
                 client_hash_node->clientInfo.addr = client_addr;
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
-                uuid_generate (client_hash_node->clientInfo.id);
                 client_hash_node->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
-                negotiateUUID (& client_hash_node->clientInfo);
+                memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
                 hash_map_put (hash_map_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
 
             }
@@ -226,12 +214,49 @@ void * processRaspiClient (void * args)
 {
     client_info_t * clientInfo = (client_info_t *) args;
     int read_len;
-    if (clientInfo->sslEnable)
-        read_len = SSL_read (clientInfo->ssl_fd, clientInfo->buf, BUFSIZ);
-    else read_len = (int) read (clientInfo->fd, clientInfo->buf, BUFSIZ);
-    readClient (* clientInfo, clientInfo->buf, BUFSIZ);
+    uuid_t id_zero = {0};
+    hash_node_t * for_init = hash_map_get (hash_map_raspi, clientInfo->fd, clientInfo->fd);
+    memset (clientInfo->buf, 0, BUFSIZ);
 
-    if (read_len == sizeof (raspi_monit_data))
+    // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
+    // bug: 客户端 SSL_connect 无法被本分支捕获, 客户端reset后服务器不能销毁对应客户端结构
+    if (server_accept_raspi.sslEnable && (!for_init->clientInfo.sslEnable || for_init->clientInfo.ssl_fd == NULL))
+    {
+        for_init->clientInfo.sslEnable = true;
+        for_init->clientInfo.ssl_fd = SSL_new (server_accept_raspi.ssl_ctx);
+        SSL_set_fd (for_init->clientInfo.ssl_fd, for_init->clientInfo.fd);
+
+        if (SSL_accept (for_init->clientInfo.ssl_fd) == -1)
+        {
+            perr (true, LOG_INFO,
+                  "eventPoll: SSL_accept failed: client[%d] form %s:%d",
+                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, clientInfo->fd, NULL);
+            hash_map_del (hash_map_raspi, clientInfo->fd, clientInfo->fd);
+            close (clientInfo->fd);
+            return (void *) -1;
+        } else
+            perr (true, LOG_INFO,
+                  "eventPoll: SSL_accept success: client[%d] form %s:%d",
+                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+        return NULL;
+    }
+
+    // 客户端 UUID 同步消息
+    if (memcmp (clientInfo->id, id_zero, sizeof (uuid_t)) == 0)
+    {
+
+        negotiateUUID (clientInfo);
+        memcpy (for_init->clientInfo.id, clientInfo->id, sizeof (uuid_t));
+        return NULL;
+    }
+
+
+    read_len = readClient (* clientInfo, clientInfo->buf, BUFSIZ);
+
+
+    // 常规消息
+    if (read_len == sizeof (RaspiMonitData))
     {
         printf ("Data From Client %d:\n", clientInfo->fd);
         printf ("cpu temp = %.2fC\n", (* (RaspiMonitData *) clientInfo->buf).cpu_temper);
@@ -239,10 +264,14 @@ void * processRaspiClient (void * args)
         printf ("env temp = %.2fC\n", (* (RaspiMonitData *) clientInfo->buf).env_temper);
         printf ("env humid = %.2f\n\n", (* (RaspiMonitData *) clientInfo->buf).env_humidity);
     }
+
+    // 客户端状态信息
     if (read_len <= 4)
     {
         if (strcmp (clientInfo->buf, "FIN") == 0)
         {
+            perr (true, LOG_INFO, "FIN received! Disconnect: client[%d] form %s:%d",
+                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
             epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, clientInfo->fd, NULL);
             if (clientInfo->sql != NULL)
                 sql_pool_conn_release (sql_pool_accept_raspi, clientInfo->sql);
@@ -256,9 +285,9 @@ void * processRaspiClient (void * args)
             return NULL;
         }
     }
-    if (clientInfo->sslEnable)
-        SSL_write (clientInfo->ssl_fd, "CON", 4);
-    else write (clientInfo->fd, "CON", 4);
+
+    if (writeClient (* clientInfo, "CON", 4) < 0)
+        return (void *) -1;
 
     return NULL;
 }

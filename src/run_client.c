@@ -91,9 +91,12 @@ void loadSSLClnt ()
         if (!rtn_flag) exitCleanupClnt ();
     }
 
-    raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
+    raspi_connect_server.ssl_fd = SSL_new (raspi_connect_server.ssl_ctx);
+
+//    raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
+    SSL_set_fd (raspi_connect_server.ssl_fd, raspi_connect_server.fd);
     if (raspi_connect_server.ssl_fd == NULL) exitCleanupClnt ();
-    setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
+//    setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
 
     if (SSL_connect (raspi_connect_server.ssl_fd) == -1)
     {
