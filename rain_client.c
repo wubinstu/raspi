@@ -73,6 +73,8 @@ int main (int argc, const char * argv[])
 
     loadSSLClnt ();
 
+    negotiateUUID ();
+
     while (true)
     {
         checkMonit ();

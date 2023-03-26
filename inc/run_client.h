@@ -6,6 +6,12 @@
 #define __RUN_CLIENT_H_
 
 #include "head.h"
+#include "uuid/uuid.h"
+
+
+extern int readServer (void * buf, int size);
+
+extern int writeServer (void * buf, int size);
 
 /** Trying to connect to the server
  * exponential backoff:[1,MAXSLEEP(128)]secs
@@ -13,6 +19,10 @@
 extern int tryConnect (int led);
 
 extern void loadSSLClnt ();
+
+extern bool fileUUID (uuid_t uu, bool true_for_load_false_for_record);
+
+extern void negotiateUUID ();
 
 /** [NO RETURN] Continuous monitoring and data acquisition */
 extern void checkMonit ();

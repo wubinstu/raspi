@@ -24,6 +24,8 @@ thread_pool_t * thread_pool_accept_http = NULL;
 
 hash_map_t * hash_map_raspi = NULL;
 
+struct epoll_event event_server_raspi[SERVER_EPOLL_SIZE];
+
 int pid_file_fd = -1;
 
 jmp_buf jmp_client_rest;

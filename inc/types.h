@@ -6,6 +6,7 @@
 #include "stdbool.h"
 #include "mysql/mysql.h"
 #include "openssl/ssl.h"
+#include "uuid/uuid.h"
 
 /** For configuration file */
 typedef struct element
@@ -120,9 +121,8 @@ typedef struct client_info
     struct sockaddr_in addr;            // 客户端地址
     int addr_len;                       // 客户端地址长度
     char buf[BUFSIZ];                   // 数据交互缓冲区
-    char id[32];                        // 客户端唯一标识
+    uuid_t id;                          // 客户端唯一标识
     SSL * ssl_fd;                       // SSL 套接字,加密算法,密钥,缓冲区
-//    SSL_CTX * ssl_ctx;                  // SSL 会话配置,证书,私钥,协议版本等
     bool sslEnable;                     // 是否启用 SSL 连接
     sql_node_t * sql;                   // MySQL 数据库连接
 } client_info_t;

@@ -4,6 +4,7 @@
 
 #include "arr.h"
 #include "conf.h"
+#include "filed.h"
 #include "global.h"
 #include "log.h"
 #include "load_clean.h"
@@ -12,6 +13,24 @@
 #include "run_client.h"
 #include "raspi_drive.h"
 #include "types.h"
+
+int readServer (void * buf, int size)
+{
+    int read_size;
+    if (raspi_connect_server.sslEnable)
+        read_size = SSL_read (raspi_connect_server.ssl_fd, buf, size);
+    else read_size = (int) read (raspi_connect_server.fd, buf, size);
+    return read_size;
+}
+
+int writeServer (void * buf, int size)
+{
+    int write_size;
+    if (raspi_connect_server.sslEnable)
+        write_size = SSL_write (raspi_connect_server.ssl_fd, buf, size);
+    else write_size = (int) write (raspi_connect_server.fd, buf, size);
+    return write_size;
+}
 
 
 int tryConnect (int led)
@@ -87,6 +106,44 @@ void loadSSLClnt ()
 
 }
 
+bool fileUUID (uuid_t uu, bool true_for_load_false_for_record)
+{
+    memset (uu, 0, sizeof (uuid_t));
+    if (true_for_load_false_for_record)
+    {
+        int uu_fd = readOpen (UUID_CLIENT_FILE);
+        if (uu_fd == -1)
+        {
+            strcpy ((char *) uu, UUID_NONE);
+            return false;
+        }
+        read (uu_fd, uu, sizeof (uuid_t) + 1);
+        close (uu_fd);
+        return true;
+    } else
+    {
+        int uu_fd = writeOpen (UUID_CLIENT_FILE);
+        if (uu_fd == -1)return false;
+        write (uu_fd, uu, sizeof (uuid_t) + 1);
+        close (uu_fd);
+        return true;
+    }
+}
+
+void negotiateUUID ()
+{
+    uuid_t uuid_client;
+    char uuid_client_string[40];
+    fileUUID (uuid_client, true);
+    writeServer (uuid_client, sizeof (uuid_t));
+
+    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
+        readServer (uuid_client, sizeof (uuid_t)),
+                fileUUID (uuid_client, false);
+    uuid_unparse (uuid_client, uuid_client_string);
+    perr (true, LOG_INFO, "Client UUID: %s", (char *) uuid_client_string);
+}
+
 void checkMonit ()
 {
     clearMonit (& raspi_monit_data);
@@ -124,18 +181,19 @@ void sendData (int led)
         return;
     }
 
-    if (raspi_connect_server.sslEnable)
-        write_len = SSL_write (raspi_connect_server.ssl_fd, & raspi_monit_data, sizeof (raspi_monit_data));
-    else write_len = write (raspi_connect_server.fd, & raspi_monit_data, sizeof (raspi_monit_data));
-
+//    if (raspi_connect_server.sslEnable)
+//        write_len = SSL_write (raspi_connect_server.ssl_fd, & raspi_monit_data, sizeof (raspi_monit_data));
+//    else write_len = write (raspi_connect_server.fd, & raspi_monit_data, sizeof (raspi_monit_data));
+    write_len = writeServer (& raspi_monit_data, sizeof (raspi_monit_data));
 
     // write_len == -1 -> SIGPIPE -> exit,clean
     printf ("write done. len = %zd\n", write_len);
 
     alarm (10);  // set a timer
-    if (raspi_connect_server.sslEnable)
-        read_len = SSL_read (raspi_connect_server.ssl_fd, status, 4);
-    else read_len = read (raspi_connect_server.fd, status, 4);
+//    if (raspi_connect_server.sslEnable)
+//        read_len = SSL_read (raspi_connect_server.ssl_fd, status, 4);
+//    else read_len = read (raspi_connect_server.fd, status, 4);
+    read_len = readServer (status, 4);
     alarm (0);  // unset timer
     flash_led (led, 90);
 

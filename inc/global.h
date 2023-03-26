@@ -58,6 +58,9 @@
 
 // 用来创建客户端结构体哈希表, 大小需要设置为素数
 #define HASH_MAP_SIZE      1999
+#define SERVER_EPOLL_SIZE  10000
+#define UUID_CLIENT_FILE    "/tmp/tmpRaspiRainId"
+#define UUID_NONE           "UUID_NONE"
 
 
 extern int filed_logLevel;
@@ -83,6 +86,8 @@ extern hash_map_t * hash_map_raspi;
 
 /** pid file fd */
 extern int pid_file_fd;
+
+extern struct epoll_event event_server_raspi[SERVER_EPOLL_SIZE];
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;
