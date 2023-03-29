@@ -21,6 +21,7 @@
 int main (int argc, const char * argv[])
 {
     mysql_lib (true);
+    preRunTimeArgsServ (argc, argv);
     confToVarServ ();
     runTimeArgsServ (argc, argv);
 
@@ -52,8 +53,30 @@ int main (int argc, const char * argv[])
                            SQL_POOL_MAX, SQL_POOL_MIN);
     thread_pool_accept_raspi =
             thread_pool_init (THREAD_POOL_MAX, THREAD_POOL_MIN, THREAD_POOL_QUEUE);
-//    thread_pool_accept_http =
-//            thread_pool_init (THREAD_POOL_MAX, THREAD_POOL_MIN, THREAD_POOL_QUEUE);
+    thread_pool_accept_http =
+            thread_pool_init (THREAD_POOL_MAX, THREAD_POOL_MIN, THREAD_POOL_QUEUE);
+
+    sql_node_t * for_init_table = sql_pool_conn_fetch (sql_pool_accept_raspi);
+    char sql[300] = {0};
+    sprintf (sql, "create table if not exists %s %s", SQL_TABLE_RASPI,
+             "(record_id BIGINT not null auto_increment primary key,"
+             "record_date DATE not null,"
+             "record_time TIME not null,"
+             "client_fd INTEGER not null,"
+             "client_uuid VARCHAR(40) not null,"
+             "cpu_temp FLOAT(2),"
+             "distance FLOAT(2),"
+             "env_humi FLOAT(2),"
+             "env_temp FLOAT(2))");
+    int ret = mysql_query (for_init_table->connection, sql);
+    if (ret == 0)
+        printf ("Create table %s successfully\n", SQL_TABLE_RASPI);
+    else
+        perr (true, LOG_WARNING, "Create table Error: %d %s\n",
+              mysql_errno (for_init_table->connection),
+              mysql_error (for_init_table->connection));
+
+    sql_pool_conn_release (sql_pool_accept_raspi, & for_init_table);
 
     hash_map_raspi = hash_map_init (HASH_MAP_SIZE);
 

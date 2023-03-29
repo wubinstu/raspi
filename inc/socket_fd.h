@@ -27,6 +27,9 @@ extern int createServEpoll (int sock_fd);
 /** Sets the socket to skip the "time to wait" state when disconnected */
 extern void sockReuseAddr (int fd);
 
+/** set tcp socket keep alive */
+extern void sockKeepAlive (int fd);
+
 /** Using Nagle algorithm */
 extern void sockNagle (int fd);
 

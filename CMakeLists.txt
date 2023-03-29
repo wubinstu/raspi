@@ -55,6 +55,7 @@ add_library(web_http ${LIB_TYPE} src/web_http.c)
 # exec
 add_executable(rain_client rain_client.c)
 add_executable(rain_server rain_server.c)
+add_executable(multi_client_test multi_client_test.c)
 
 #link
 if (NOT ${SIMULATOR})

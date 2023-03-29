@@ -39,6 +39,7 @@ int main (int argc, const char * argv[])
 {
 //    atexit (exitCleanupClnt);
     initPi ();  // init wiringPi lib
+    preRunTimeArgsClnt (argc, argv);
     confToVarClnt ();  // read conf file
     runTimeArgsClnt (argc, argv);  // Check Runtime parameters
 
@@ -73,8 +74,13 @@ int main (int argc, const char * argv[])
 
     loadSSLClnt ();
 
+    perr (true, LOG_INFO,
+          "Waiting For Server to generate UUID, 5 secs...");
+    sleep (5);
+
     negotiateUUID ();
-    sleep (3);
+    perr (true, LOG_INFO,
+          "Network connection done! Data transfer will take place now");
 
     while (true)
     {

@@ -22,7 +22,7 @@ void sigHandlerClnt (int signo, siginfo_t * siginfo, void * context)
     if (signo == SIGINT || signo == SIGQUIT || signo == SIGABRT)
         perr (true, LOG_NOTICE,
               "%s received, Stopping", strsignal (signo)),
-                sendFINtoServ (),
+//                sendFINtoServ (),
                 downLightsCloseServ (),
                 exitCleanupClnt ();
 
@@ -63,8 +63,8 @@ void sigHandlerClnt (int signo, siginfo_t * siginfo, void * context)
     }
     if (signo == SIGHUP)  // reload or quit
     {
-        sendFINtoServ (),
-                downLightsCloseServ ();
+//        sendFINtoServ (),
+        downLightsCloseServ ();
         /**
          * 客户端对SIGHUP的用法:
          * 当进程处于前台,占用控制终端时SIGHUP表示用户从控制终端断开连接

@@ -11,8 +11,13 @@
  * @param cmd program(process) name */
 extern void daemonize (const char * cmd);
 
-/**
- * Processing Runtime Parameters */
+
+/** Preprocess runtime arguments */
+extern void preRunTimeArgsServ (int argc, const char * argv[]);
+
+extern void preRunTimeArgsClnt (int argc, const char * argv[]);
+
+/** Processing Runtime Parameters */
 extern void runTimeArgsServ (int argc, const char * argv[]);
 
 extern void runTimeArgsClnt (int argc, const char * argv[]);

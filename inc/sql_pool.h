@@ -16,7 +16,7 @@ extern void sql_pool_destroy (sql_pool_t * pool);
 
 extern sql_node_t * sql_pool_conn_fetch (sql_pool_t * pool);
 
-extern bool sql_pool_conn_release (sql_pool_t * pool, sql_node_t * sql_node);
+extern bool sql_pool_conn_release (sql_pool_t * pool, sql_node_t ** sql_node);
 
 extern bool sql_pool_conn_add (sql_pool_t * pool, unsigned int add_num);
 

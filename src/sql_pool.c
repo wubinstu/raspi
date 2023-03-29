@@ -154,18 +154,19 @@ sql_node_t * sql_pool_conn_fetch (sql_pool_t * pool)
     return sql_node;
 }
 
-bool sql_pool_conn_release (sql_pool_t * pool, sql_node_t * sql_node)
+bool sql_pool_conn_release (sql_pool_t * pool, sql_node_t ** sql_node)
 {
-    if (pool == NULL || sql_node == NULL)
+    if (pool == NULL || sql_node == NULL || * sql_node == NULL)
         return false;
 
     lock_robust_mutex (& pool->lock);
-    if (pool->sql_pool[sql_node->index].connection == sql_node->connection)
+    if (pool->sql_pool[(* sql_node)->index].connection == (* sql_node)->connection)
     {
-        sql_node->isBusy = false;
+        (* sql_node)->isBusy = false;
         pool->conn_busy--;
     }
     pthread_mutex_unlock (& pool->lock);
+    * sql_node = NULL;
     return true;
 }
 

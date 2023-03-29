@@ -55,6 +55,7 @@
 #define THREAD_POOL_QUEUE   20
 #define SQL_POOL_MAX        20
 #define SQL_POOL_MIN        5
+#define SQL_TABLE_RASPI     "raspi"
 
 // 用来创建客户端结构体哈希表, 大小需要设置为素数
 #define HASH_MAP_SIZE      1999

@@ -11,6 +11,7 @@
 #include "log.h"
 #include "thread_pool.h"
 #include "sql_pool.h"
+#include "self_sql.h"
 
 int readClient (client_info_t clientInfo, void * buf, int size)
 {
@@ -77,7 +78,7 @@ void loadSSLServ ()
 
         server_accept_raspi.ssl_fd = SSL_fd (server_accept_raspi.ssl_ctx, server_accept_raspi.fd);
         if (server_accept_raspi.ssl_fd == NULL) exitCleanupServ ();
-//        setVerifyPeer (server_accept_raspi.ssl_ctx, false);
+        setVerifyPeer (server_accept_raspi.ssl_ctx, false);
     }
     if (server_accept_http.sslEnable)
     {
@@ -98,19 +99,22 @@ void loadSSLServ ()
 
         server_accept_http.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, server_accept_http.fd);
         if (server_accept_http.ssl_fd == NULL) exitCleanupServ ();
-//        setVerifyPeer (server_accept_http.ssl_ctx, false);
+        setVerifyPeer (server_accept_http.ssl_ctx, false);
     }
 }
 
 void negotiateUUID (client_info_t * clientInfo)
 {
     uuid_t uuid_client;
+    uuid_t uuid_zero = {0};
     char uuid_client_string[40];
     memset (uuid_client, 0, sizeof (uuid_t));
     memset (uuid_client_string, 0, sizeof (uuid_client_string));
 
     readClient (* clientInfo, uuid_client, sizeof (uuid_t));
-    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
+//    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
+    if (memcmp (uuid_client, UUID_NONE, strlen (UUID_NONE)) == 0 ||
+        memcmp (uuid_client, uuid_zero, sizeof (uuid_t)) == 0)
         uuid_generate (uuid_client),
                 writeClient (* clientInfo, uuid_client, sizeof (uuid_t));
     memcpy (clientInfo->id, uuid_client, sizeof (uuid_t));
@@ -136,27 +140,40 @@ void eventPoll (server_info_t serverInfo)
 
     while (true)
     {
-        ev_num = epoll_wait (serverInfo.epfd, event_server_raspi, SERVER_EPOLL_SIZE, -1);
+        ev_num = epoll_wait (serverInfo.epfd, event_server_raspi, SERVER_EPOLL_SIZE, 5000);
         if (ev_num == -1)
             break;
 
         for (int i = 0; i < ev_num; i++)
         {
             // 手动调用一次 read 函数得到 0 或者 -1 的返回值才会发生此事件(服务器和客户端调用close皆可)
-            if (event_server_raspi[i].events & EPOLLRDHUP)
+            // 这里用于处理非预期的连接断开,客户端软件遭遇SIGKILL信号,客户端遭遇遭遇突然断电等
+            // 及时清理掉无效连接
+            if (event_server_raspi[i].events & EPOLLRDHUP ||
+                event_server_raspi[i].events & EPOLLERR ||
+                event_server_raspi[i].events & EPOLLHUP)
             {
-                epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_raspi[i].data.fd, NULL);
                 client_hash_node = hash_map_get (hash_map_raspi, event_server_raspi[i].data.fd,
                                                  event_server_raspi[i].data.fd);
-                if (client_hash_node->clientInfo.sql != NULL)
-                    sql_pool_conn_release (sql_pool_accept_raspi, client_hash_node->clientInfo.sql);
-                if (client_hash_node->clientInfo.sslEnable)
+                epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_raspi[i].data.fd, NULL);
+
+                if (client_hash_node != NULL)
                 {
-                    SSL_shutdown (client_hash_node->clientInfo.ssl_fd);
-                    SSL_free (client_hash_node->clientInfo.ssl_fd);
+                    perr (true, LOG_INFO, "Client Disconnect! Delete: client[%d] form %s:%d",
+                          client_hash_node->clientInfo.fd,
+                          inet_ntoa (client_hash_node->clientInfo.addr.sin_addr),
+                          ntohs (client_hash_node->clientInfo.addr.sin_port));
+                    if (client_hash_node->clientInfo.sql != NULL)
+                        sql_pool_conn_release (sql_pool_accept_raspi, & client_hash_node->clientInfo.sql);
+                    if (client_hash_node->clientInfo.sslEnable && client_hash_node->clientInfo.ssl_fd != NULL)
+                    {
+                        SSL_shutdown (client_hash_node->clientInfo.ssl_fd);
+                        SSL_free (client_hash_node->clientInfo.ssl_fd);
+                    }
+                    close (client_hash_node->clientInfo.fd);
+                    hash_map_del (hash_map_raspi, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
                 }
-                close (client_hash_node->clientInfo.fd);
-                hash_map_del (hash_map_raspi, event_server_raspi[i].data.fd, event_server_raspi[i].data.fd);
+                continue;
             }
             // 服务器套接字事件, 一般是有新连接
             if (event_server_raspi[i].data.fd == serverInfo.fd)
@@ -171,7 +188,10 @@ void eventPoll (server_info_t serverInfo)
                 }
                 // 设置客户端套接字: 非阻塞
                 setSockFlag (client_ev.data.fd, O_NONBLOCK, true);
-                client_ev.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLHUP;
+                // 设置客户端套接字: KeepAlive
+                sockKeepAlive (client_ev.data.fd);
+                // 设置客户端套接字: 关注的事件
+                client_ev.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_ADD, client_ev.data.fd, & client_ev);
                 perr (true, LOG_INFO,
                       "eventPoll: accept a client[%d] form %s:%d",
@@ -186,7 +206,7 @@ void eventPoll (server_info_t serverInfo)
                 client_hash_node->clientInfo.fd = client_ev.data.fd;
                 client_hash_node->clientInfo.addr = client_addr;
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
-                client_hash_node->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
+//                client_hash_node->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
                 memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
                 hash_map_put (hash_map_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
 
@@ -200,8 +220,8 @@ void eventPoll (server_info_t serverInfo)
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
                 task.client = & client_hash_node->clientInfo;
-                if (task.client->sql == NULL)
-                    task.client->sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
+//                if (task.client->sql == NULL)
+//                    task.client->sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
                 task.args = (void *) task.client;
                 task.func = processRaspiClient;
                 thread_pool_add_task (thread_pool_accept_raspi, & task);
@@ -216,29 +236,40 @@ void * processRaspiClient (void * args)
     int read_len;
     uuid_t id_zero = {0};
     hash_node_t * for_init = hash_map_get (hash_map_raspi, clientInfo->fd, clientInfo->fd);
-    memset (clientInfo->buf, 0, BUFSIZ);
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
-    // bug: 客户端 SSL_connect 无法被本分支捕获, 客户端reset后服务器不能销毁对应客户端结构
-    if (server_accept_raspi.sslEnable && (!for_init->clientInfo.sslEnable || for_init->clientInfo.ssl_fd == NULL))
+    if (server_accept_raspi.sslEnable && !for_init->clientInfo.sslEnable)
     {
-        for_init->clientInfo.sslEnable = true;
-        for_init->clientInfo.ssl_fd = SSL_new (server_accept_raspi.ssl_ctx);
+        if (for_init->clientInfo.ssl_fd == NULL)
+            for_init->clientInfo.ssl_fd = SSL_new (server_accept_raspi.ssl_ctx);
+
         SSL_set_fd (for_init->clientInfo.ssl_fd, for_init->clientInfo.fd);
 
-        if (SSL_accept (for_init->clientInfo.ssl_fd) == -1)
+        int ssl_accept_rtn = SSL_accept (for_init->clientInfo.ssl_fd);
+        int ssl_rtn = SSL_get_error (for_init->clientInfo.ssl_fd, ssl_accept_rtn);
+        if (ssl_rtn == SSL_ERROR_WANT_READ || ssl_rtn == SSL_ERROR_WANT_WRITE)
+        {
+            for_init->clientInfo.sslEnable = false;
+            return NULL;
+        }
+
+        if (ssl_accept_rtn != -1)
+        {
+            for_init->clientInfo.sslEnable = true;
+            perr (true, LOG_INFO,
+                  "eventPoll: SSL_accept success: client[%d] form %s:%d",
+                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+        } else
         {
             perr (true, LOG_INFO,
                   "eventPoll: SSL_accept failed: client[%d] form %s:%d",
                   clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+            ERR_print_errors_fp (stdout);
             epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, clientInfo->fd, NULL);
             hash_map_del (hash_map_raspi, clientInfo->fd, clientInfo->fd);
             close (clientInfo->fd);
             return (void *) -1;
-        } else
-            perr (true, LOG_INFO,
-                  "eventPoll: SSL_accept success: client[%d] form %s:%d",
-                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+        }
         return NULL;
     }
 
@@ -252,6 +283,7 @@ void * processRaspiClient (void * args)
     }
 
 
+    memset (clientInfo->buf, 0, BUFSIZ);
     read_len = readClient (* clientInfo, clientInfo->buf, BUFSIZ);
 
 
@@ -263,31 +295,56 @@ void * processRaspiClient (void * args)
         printf ("distance = %.2fcm\n", (* (RaspiMonitData *) clientInfo->buf).distance);
         printf ("env temp = %.2fC\n", (* (RaspiMonitData *) clientInfo->buf).env_temper);
         printf ("env humid = %.2f\n\n", (* (RaspiMonitData *) clientInfo->buf).env_humidity);
+        time_t now = time (NULL);
+        struct tm * tp = localtime (& now); //转换为struct tm类型
+        char date[11]; //用于存储日期字符串
+        char time[9]; //用于存储时间字符串
+        strftime (date, 11, "%Y-%m-%d", tp); //格式化日期
+        strftime (time, 9, "%H:%M:%S", tp); //格式化时间
+
+        char uuid_string[40] = {0};
+        uuid_unparse (clientInfo->id, uuid_string);
+        char insert_filed[] = "(record_date,record_time,client_fd,client_uuid,cpu_temp,distance,env_humi,env_temp)";
+        char insert_values[300] = {0};
+        sprintf (insert_values, "('%s','%s',%d,'%s',%.2f,%.2f,%.2f,%.2f)",
+                 date, time, clientInfo->fd, uuid_string,
+                 (* (RaspiMonitData *) clientInfo->buf).cpu_temper,
+                 (* (RaspiMonitData *) clientInfo->buf).distance,
+                 (* (RaspiMonitData *) clientInfo->buf).env_temper,
+                 (* (RaspiMonitData *) clientInfo->buf).env_humidity);
+//        while(for_init->clientInfo.sql != NULL)
+        for_init->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
+        if (for_init->clientInfo.sql == NULL)
+            return (void *) -1;
+        mysql_insert_values (for_init->clientInfo.sql->connection, SQL_TABLE_RASPI, insert_filed, insert_values);
+        sql_pool_conn_release (sql_pool_accept_raspi, & for_init->clientInfo.sql);
+//        if (writeClient (* clientInfo, "CON", 4) < 0)
+//            return (void *) -1;
     }
 
     // 客户端状态信息
-    if (read_len <= 4)
-    {
-        if (strcmp (clientInfo->buf, "FIN") == 0)
-        {
-            perr (true, LOG_INFO, "FIN received! Disconnect: client[%d] form %s:%d",
-                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
-            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, clientInfo->fd, NULL);
-            if (clientInfo->sql != NULL)
-                sql_pool_conn_release (sql_pool_accept_raspi, clientInfo->sql);
-            if (clientInfo->sslEnable)
-            {
-                SSL_shutdown (clientInfo->ssl_fd);
-                SSL_free (clientInfo->ssl_fd);
-            }
-            close (clientInfo->fd);
-            hash_map_del (hash_map_raspi, clientInfo->fd, clientInfo->fd);
-            return NULL;
-        }
-    }
+//    if (read_len <= 4)
+//    {
+//        if (strcmp (clientInfo->buf, "FIN") == 0)
+//        {
+//
+//            perr (true, LOG_INFO, "FIN received! Disconnect: client[%d] form %s:%d",
+//                  clientInfo->fd, inet_ntoa (clientInfo->addr.sin_addr), ntohs (clientInfo->addr.sin_port));
+//            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, clientInfo->fd, NULL);
+//            if (clientInfo->sql != NULL)
+//                sql_pool_conn_release (sql_pool_accept_raspi, & clientInfo->sql);
+//            if (clientInfo->sslEnable && clientInfo->ssl_fd != NULL)
+//            {
+//                SSL_shutdown (clientInfo->ssl_fd);
+//                SSL_free (clientInfo->ssl_fd);
+//            }
+//            close (clientInfo->fd);
+//            hash_map_del (hash_map_raspi, clientInfo->fd, clientInfo->fd);
+//
+//            return NULL;
+//        }
+//    }
 
-    if (writeClient (* clientInfo, "CON", 4) < 0)
-        return (void *) -1;
 
     return NULL;
 }

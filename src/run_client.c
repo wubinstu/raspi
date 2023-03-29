@@ -93,10 +93,9 @@ void loadSSLClnt ()
 
     raspi_connect_server.ssl_fd = SSL_new (raspi_connect_server.ssl_ctx);
 
-//    raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
-    SSL_set_fd (raspi_connect_server.ssl_fd, raspi_connect_server.fd);
+    raspi_connect_server.ssl_fd = SSL_fd (raspi_connect_server.ssl_ctx, raspi_connect_server.fd);
     if (raspi_connect_server.ssl_fd == NULL) exitCleanupClnt ();
-//    setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
+    setVerifyPeer (raspi_connect_server.ssl_ctx, config_client.sslMode == ssl_load_ca);
 
     if (SSL_connect (raspi_connect_server.ssl_fd) == -1)
     {
@@ -111,9 +110,9 @@ void loadSSLClnt ()
 
 bool fileUUID (uuid_t uu, bool true_for_load_false_for_record)
 {
-    memset (uu, 0, sizeof (uuid_t));
     if (true_for_load_false_for_record)
     {
+        memset (uu, 0, sizeof (uuid_t));
         int uu_fd = readOpen (UUID_CLIENT_FILE);
         if (uu_fd == -1)
         {
@@ -127,7 +126,7 @@ bool fileUUID (uuid_t uu, bool true_for_load_false_for_record)
     {
         int uu_fd = writeOpen (UUID_CLIENT_FILE);
         if (uu_fd == -1)return false;
-        write (uu_fd, uu, sizeof (uuid_t) + 1);
+        write (uu_fd, uu, sizeof (uuid_t));
         close (uu_fd);
         return true;
     }
@@ -136,11 +135,14 @@ bool fileUUID (uuid_t uu, bool true_for_load_false_for_record)
 void negotiateUUID ()
 {
     uuid_t uuid_client;
+    uuid_t uuid_zero = {0};
     char uuid_client_string[40];
     fileUUID (uuid_client, true);
     writeServer (uuid_client, sizeof (uuid_t));
 
-    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
+//    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1);
+    if (memcmp (uuid_client, UUID_NONE, strlen (UUID_NONE)) == 0 ||
+        memcmp (uuid_client, uuid_zero, sizeof (uuid_t)) == 0)
         readServer (uuid_client, sizeof (uuid_t)),
                 fileUUID (uuid_client, false);
     uuid_unparse (uuid_client, uuid_client_string);
@@ -192,25 +194,25 @@ void sendData (int led)
     // write_len == -1 -> SIGPIPE -> exit,clean
     printf ("write done. len = %zd\n", write_len);
 
-    alarm (10);  // set a timer
+//    alarm (10);  // set a timer
 //    if (raspi_connect_server.sslEnable)
 //        read_len = SSL_read (raspi_connect_server.ssl_fd, status, 4);
 //    else read_len = read (raspi_connect_server.fd, status, 4);
-    read_len = readServer (status, 4);
-    alarm (0);  // unset timer
+//    read_len = readServer (status, 4);
+//    alarm (0);  // unset timer
     flash_led (led, 90);
 
-    if (read_len == -1)
-    {
-        sleep_time = config_client.interval * 5;
-        perr (true, LOG_ERR, "NetWork Error! Service Will resetClnt in %d secs", sleep_time);
-        sleep (sleep_time);
-        raise (SIGALRM);
-    }
-    if (strcmp (status, "FIN") == 0)
-    {
-        printf ("FIN received, len = %zd, exiting in %d secs\n", read_len, sleep_time);
-        sleep (sleep_time);
-        raise (SIGTERM);
-    }
+//    if (read_len == -1)
+//    {
+//        sleep_time = config_client.interval * 5;
+//        perr (true, LOG_ERR, "NetWork Error! Service Will resetClnt in %d secs", sleep_time);
+//        sleep (sleep_time);
+//        raise (SIGALRM);
+//    }
+//    if (strcmp (status, "FIN") == 0)
+//    {
+//        printf ("FIN received, len = %zd, exiting in %d secs\n", read_len, sleep_time);
+//        sleep (sleep_time);
+//        raise (SIGTERM);
+//    }
 }

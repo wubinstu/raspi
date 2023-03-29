@@ -124,6 +124,15 @@ void sockReuseAddr (int fd)
           "function setsockopt returns -1 when called sockReuseAddr");
 }
 
+void sockKeepAlive (int fd)
+{
+    int opt = 1;
+    int status = setsockopt
+            (fd, IPPROTO_TCP, SO_KEEPALIVE, (void *) & opt, (socklen_t) sizeof (opt));
+    perr (status == -1, socket_fd_logLevel,
+          "function setsockopt returns -1 when called sockKeepAlive");
+}
+
 void sockNagle (int fd)
 {
     int opt = 1;

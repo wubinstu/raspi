@@ -161,11 +161,12 @@ void * thread_pool_process (void * args)
             task->state = onProcessing;
 
             /// TODO deal with task
-            (* task->func) (task->args);
+            void * rtn = (* task->func) (task->args);
 
 
             /// TODO free task struct
-            task->state = ignorable;
+            if (rtn == (void *) -1)task->state = inError;
+            else task->state = ignorable;
 //            free (task->client);
 //            free (task);
 

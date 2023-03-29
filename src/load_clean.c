@@ -102,6 +102,160 @@ void daemonize (const char * cmd)
           cmd, getpid (), getppid (), getpgrp (), getsid (getpid ()));
 }
 
+void preRunTimeArgsServ (int argc, const char * argv[])
+{
+    int errno_save = errno;
+    char * args = calloc (1, 30);
+    char * value = calloc (1, 30);
+    for (int i = 1; i < argc; i++)
+    {
+        memset (args, 0, 30);
+        memset (value, 0, 30);
+        strcpy (args, argv[i]);
+        if (argv[i + 1] != NULL)
+            strcpy (value, argv[i + 1]);
+        lowerConversion (args);
+
+        if (strcmp (args, "--clean-pid") == 0)
+        {
+            char * pid_file;
+            if (strcmp (config_server.pidFile, "default") == 0)
+                pid_file = PID_FILE_SERVER;
+            else if (strcmp (config_server.pidFile, "disable") == 0)
+                pid_file = NULL;
+            else pid_file = config_server.pidFile;
+            if (!checkRootPermission ("to delete PID_FILE"))
+                exit (-1);
+            if (pid_file != NULL)
+            {
+                printf ("%s will be deleted\n", pid_file);
+                unlink (pid_file);
+            } else printf ("PIDFILE is already disable\n");
+            exit (0);
+        } else if (strcmp (args, "--default-conf") == 0)
+        {
+            printf ("resetServ %s\n", CONF_FILE_SERVER);
+            unlink (CONF_FILE_SERVER);
+            defaultConfServ (CONF_FILE_SERVER);
+            exit (0);
+        } else if (strcmp (args, "--settings") == 0)
+        {
+            if (!checkRootPermission ("or it will open in read-only mode"
+                                      "(Press Any Key To Continue)"))
+                getchar ();
+            execlp ("vim", "vim", CONF_FILE_SERVER, NULL);
+            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
+            sleep (3);
+            execlp ("vi", "vi", CONF_FILE_SERVER, NULL);
+            printf ("can not open conf file with vi too! "
+                    "please operate manually (3 secs...)\n");
+            sleep (3);
+            exit (-1);
+        } else if (strcmp (args, "--help") == 0)
+        {
+            printf ("Usage:  "
+                    "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
+                    "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
+                    "[--httpport] [port]\t\t\t\t\tspecify server http port\n\t"
+                    "[--sslmode] [disable,default]\t\t\t\tspecify server ssl mode\n\t"
+                    "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
+                    "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
+                    "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
+                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+                    "[--sqlhost] [ip / hostname]\t\t\t\tspecify MySQL server host name\n\t"
+                    "[--sqlport] [port]\t\t\t\t\tspecify MySQL server port\n\t"
+                    "[--sqluser] [user]\t\t\t\t\tspecify MySQL server user\n\t"
+                    "[--sqlpass] [pass]\t\t\t\t\tspecify MySQL server pass\n\t"
+                    "[--sqlname] [name]\t\t\t\t\tspecify MySQL server DataBase Name\n\t"
+                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
+            exit (0);
+        } else
+        {
+            if (args[0] != '-')
+                continue;
+        }
+    }
+    free (args);
+    free (value);
+}
+
+
+void preRunTimeArgsClnt (int argc, const char * argv[])
+{
+    int errno_save = errno;
+    char * args = calloc (1, 30);
+    char * value = calloc (1, 30);
+    for (int i = 1; i < argc; i++)
+    {
+        memset (args, 0, 30);
+        memset (value, 0, 30);
+        strcpy (args, argv[i]);
+        if (argv[i + 1] != NULL)
+            strcpy (value, argv[i + 1]);
+        lowerConversion (args);
+
+        if (strcmp (args, "--clean-pid") == 0)
+        {
+            char * pid_file;
+            if (strcmp (config_client.pidFile, "default") == 0)
+                pid_file = PID_FILE_CLIENT;
+            else if (strcmp (config_client.pidFile, "disable") == 0)
+                pid_file = NULL;
+            else pid_file = config_client.pidFile;
+            if (!checkRootPermission ("to delete PID_FILE"))
+                exit (-1);
+            if (pid_file != NULL)
+            {
+                printf ("%s will be deleted\n", pid_file);
+                unlink (pid_file);
+            } else printf ("PIDFILE is already disable\n");
+            exit (0);
+        } else if (strcmp (args, "--default-conf") == 0)
+        {
+            printf ("resetClnt %s\n", CONF_FILE_CLIENT);
+            unlink (CONF_FILE_CLIENT);
+            defaultConfClnt (CONF_FILE_CLIENT);
+            exit (0);
+        } else if (strcmp (args, "--settings") == 0)
+        {
+            if (!checkRootPermission ("or it will open in read-only mode"
+                                      "(Press Any Key To Continue)"))
+                getchar ();
+            execlp ("vim", "vim", CONF_FILE_CLIENT, NULL);
+            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
+            sleep (3);
+            execlp ("vi", "vi", CONF_FILE_CLIENT, NULL);
+            printf ("can not open conf file with vi too! "
+                    "please operate manually (3 secs...)\n");
+            sleep (3);
+            exit (-1);
+        } else if (strcmp (args, "--help") == 0)
+        {
+            printf ("Usage:  "
+                    "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
+                    "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
+                    "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
+                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
+                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
+            exit (0);
+        } else
+        {
+            if (args[0] != '-')
+                continue;
+        }
+    }
+    free (args);
+    free (value);
+    errno = errno_save;
+}
+
 void runTimeArgsServ (int argc, const char * argv[])
 {
     int errno_save = errno;
@@ -224,63 +378,65 @@ void runTimeArgsServ (int argc, const char * argv[])
         {
             strcpy (config_server.sqlName, value);
             continue;
-        } else if (strcmp (args, "--clean-pid") == 0)
-        {
-            char * pid_file;
-            if (strcmp (config_server.pidFile, "default") == 0)
-                pid_file = PID_FILE_SERVER;
-            else if (strcmp (config_server.pidFile, "disable") == 0)
-                pid_file = NULL;
-            else pid_file = config_server.pidFile;
-            if (!checkRootPermission ("to delete PID_FILE"))
-                exit (-1);
-            if (pid_file != NULL)
-            {
-                printf ("%s will be deleted\n", pid_file);
-                unlink (pid_file);
-            } else printf ("PIDFILE is already disable\n");
-            exit (0);
-        } else if (strcmp (args, "--default-conf") == 0)
-        {
-            printf ("resetServ %s\n", CONF_FILE_SERVER);
-            unlink (CONF_FILE_SERVER);
-            defaultConfServ (CONF_FILE_SERVER);
-            exit (0);
-        } else if (strcmp (args, "--settings") == 0)
-        {
-            if (!checkRootPermission ("or it will open in read-only mode"
-                                      "(Press Any Key To Continue)"))
-                getchar ();
-            execlp ("vim", "vim", CONF_FILE_SERVER, NULL);
-            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
-            sleep (3);
-            execlp ("vi", "vi", CONF_FILE_SERVER, NULL);
-            printf ("can not open conf file with vi too! "
-                    "please operate manually (3 secs...)\n");
-            sleep (3);
-            exit (-1);
-        } else if (strcmp (args, "--help") == 0)
-        {
-            printf ("Usage:  "
-                    "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
-                    "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
-                    "[--httpport] [port]\t\t\t\t\tspecify server http port\n\t"
-                    "[--sslmode] [disable,default]\t\t\t\tspecify server ip bind port\n\t"
-                    "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
-                    "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
-                    "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
-                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
-                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
-                    "[--sqlhost] [ip / hostname]\t\t\t\tspecify MySQL server host name\n\t"
-                    "[--sqlport] [port]\t\t\t\t\tspecify server MySQL port\n\t"
-                    "[--sqluser] [user]\t\t\t\t\tspecify server MySQL user\n\t"
-                    "[--sqlpass] [pass]\t\t\t\t\tspecify server MySQL pass\n\t"
-                    "[--sqlname] [name]\t\t\t\t\tspecify server MySQL DataBase Name\n\t"
-                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
-                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
-                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
-            exit (0);
-        } else
+        }
+//        else if (strcmp (args, "--clean-pid") == 0)
+//        {
+//            char * pid_file;
+//            if (strcmp (config_server.pidFile, "default") == 0)
+//                pid_file = PID_FILE_SERVER;
+//            else if (strcmp (config_server.pidFile, "disable") == 0)
+//                pid_file = NULL;
+//            else pid_file = config_server.pidFile;
+//            if (!checkRootPermission ("to delete PID_FILE"))
+//                exit (-1);
+//            if (pid_file != NULL)
+//            {
+//                printf ("%s will be deleted\n", pid_file);
+//                unlink (pid_file);
+//            } else printf ("PIDFILE is already disable\n");
+//            exit (0);
+//        } else if (strcmp (args, "--default-conf") == 0)
+//        {
+//            printf ("resetServ %s\n", CONF_FILE_SERVER);
+//            unlink (CONF_FILE_SERVER);
+//            defaultConfServ (CONF_FILE_SERVER);
+//            exit (0);
+//        } else if (strcmp (args, "--settings") == 0)
+//        {
+//            if (!checkRootPermission ("or it will open in read-only mode"
+//                                      "(Press Any Key To Continue)"))
+//                getchar ();
+//            execlp ("vim", "vim", CONF_FILE_SERVER, NULL);
+//            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
+//            sleep (3);
+//            execlp ("vi", "vi", CONF_FILE_SERVER, NULL);
+//            printf ("can not open conf file with vi too! "
+//                    "please operate manually (3 secs...)\n");
+//            sleep (3);
+//            exit (-1);
+//        } else if (strcmp (args, "--help") == 0)
+//        {
+//            printf ("Usage:  "
+//                    "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
+//                    "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
+//                    "[--httpport] [port]\t\t\t\t\tspecify server http port\n\t"
+//                    "[--sslmode] [disable,default]\t\t\t\tspecify server ip bind port\n\t"
+//                    "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
+//                    "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
+//                    "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
+//                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+//                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+//                    "[--sqlhost] [ip / hostname]\t\t\t\tspecify MySQL server host name\n\t"
+//                    "[--sqlport] [port]\t\t\t\t\tspecify server MySQL port\n\t"
+//                    "[--sqluser] [user]\t\t\t\t\tspecify server MySQL user\n\t"
+//                    "[--sqlpass] [pass]\t\t\t\t\tspecify server MySQL pass\n\t"
+//                    "[--sqlname] [name]\t\t\t\t\tspecify server MySQL DataBase Name\n\t"
+//                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+//                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+//                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
+//            exit (0);
+//        }
+        else
         {
             if (args[0] != '-')
                 continue;
@@ -292,7 +448,7 @@ void runTimeArgsServ (int argc, const char * argv[])
     free (args);
     free (value);
     perr (true, LOG_INFO,
-          "runTime Arguments Read Done! BindAddr = %s, "
+          "runTime Arguments Read Done! The current configuration is: BindAddr = %s, "
           "BindPort = %d, "
           "HttpPort = %d, "
           "SSLMode = %s, "
@@ -399,55 +555,57 @@ void runTimeArgsClnt (int argc, const char * argv[])
                 config_client.modeDaemon = true;
             }
             continue;
-        } else if (strcmp (args, "--clean-pid") == 0)
-        {
-            char * pid_file;
-            if (strcmp (config_client.pidFile, "default") == 0)
-                pid_file = PID_FILE_CLIENT;
-            else if (strcmp (config_client.pidFile, "disable") == 0)
-                pid_file = NULL;
-            else pid_file = config_client.pidFile;
-            if (!checkRootPermission ("to delete PID_FILE"))
-                exit (-1);
-            if (pid_file != NULL)
-            {
-                printf ("%s will be deleted\n", pid_file);
-                unlink (pid_file);
-            } else printf ("PIDFILE is already disable\n");
-            exit (0);
-        } else if (strcmp (args, "--default-conf") == 0)
-        {
-            printf ("resetClnt %s\n", CONF_FILE_CLIENT);
-            unlink (CONF_FILE_CLIENT);
-            defaultConfClnt (CONF_FILE_CLIENT);
-            exit (0);
-        } else if (strcmp (args, "--settings") == 0)
-        {
-            if (!checkRootPermission ("or it will open in read-only mode"
-                                      "(Press Any Key To Continue)"))
-                getchar ();
-            execlp ("vim", "vim", CONF_FILE_CLIENT, NULL);
-            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
-            sleep (3);
-            execlp ("vi", "vi", CONF_FILE_CLIENT, NULL);
-            printf ("can not open conf file with vi too! "
-                    "please operate manually (3 secs...)\n");
-            sleep (3);
-            exit (-1);
-        } else if (strcmp (args, "--help") == 0)
-        {
-            printf ("Usage:  "
-                    "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
-                    "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
-                    "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
-                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
-                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
-                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
-                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
-                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
-                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
-            exit (0);
-        } else
+        }
+//        else if (strcmp (args, "--clean-pid") == 0)
+//        {
+//            char * pid_file;
+//            if (strcmp (config_client.pidFile, "default") == 0)
+//                pid_file = PID_FILE_CLIENT;
+//            else if (strcmp (config_client.pidFile, "disable") == 0)
+//                pid_file = NULL;
+//            else pid_file = config_client.pidFile;
+//            if (!checkRootPermission ("to delete PID_FILE"))
+//                exit (-1);
+//            if (pid_file != NULL)
+//            {
+//                printf ("%s will be deleted\n", pid_file);
+//                unlink (pid_file);
+//            } else printf ("PIDFILE is already disable\n");
+//            exit (0);
+//        } else if (strcmp (args, "--default-conf") == 0)
+//        {
+//            printf ("resetClnt %s\n", CONF_FILE_CLIENT);
+//            unlink (CONF_FILE_CLIENT);
+//            defaultConfClnt (CONF_FILE_CLIENT);
+//            exit (0);
+//        } else if (strcmp (args, "--settings") == 0)
+//        {
+//            if (!checkRootPermission ("or it will open in read-only mode"
+//                                      "(Press Any Key To Continue)"))
+//                getchar ();
+//            execlp ("vim", "vim", CONF_FILE_CLIENT, NULL);
+//            printf ("vim editor not available,use vi editor instead (3 secs...)\n");
+//            sleep (3);
+//            execlp ("vi", "vi", CONF_FILE_CLIENT, NULL);
+//            printf ("can not open conf file with vi too! "
+//                    "please operate manually (3 secs...)\n");
+//            sleep (3);
+//            exit (-1);
+//        } else if (strcmp (args, "--help") == 0)
+//        {
+//            printf ("Usage:  "
+//                    "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
+//                    "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
+//                    "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
+//                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
+//                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
+//                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
+//                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
+//                    "[--default-conf]\t\t\t\t\tCreate(Overwrite) default configuration file\n\t"
+//                    "[--settings]\t\t\t\t\t\tOpen(VIM editor) configuration file\n");
+//            exit (0);
+//        }
+        else
         {
             if (args[0] != '-')
                 continue;
@@ -459,7 +617,7 @@ void runTimeArgsClnt (int argc, const char * argv[])
     free (args);
     free (value);
     perr (true, LOG_INFO,
-          "runTime Arguments Read Done! ServAddr = %s, "
+          "runTime Arguments Read Done! The current configuration is ServAddr = %s, "
           "ServPort = %d, "
           "Interval = %d, "
           "CAFILE = %s, "
@@ -835,7 +993,6 @@ void exitCleanupClnt ()
 {
     perr (true, LOG_INFO,
           "Service Will Exit After Cleaning-up (3secs...)");
-    sleep (3);
 
     char * pid_file;
     if (strcmp (config_client.pidFile, "default") == 0)
@@ -896,7 +1053,7 @@ void sendFINtoServ ()
 
 void downLightsCloseServ ()
 {
-    if (raspi_connect_server.sslEnable)
+    if (raspi_connect_server.sslEnable && raspi_connect_server.ssl_fd != NULL)
     {
         SSL_shutdown (raspi_connect_server.ssl_fd);
         SSL_free (raspi_connect_server.ssl_fd);
