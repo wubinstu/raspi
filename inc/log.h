@@ -12,15 +12,15 @@
 #define     NOTICE             "[  NOTIC  ] ";
 #define     INFO               "[  INFOS  ] ";
 #define     DEBUG              "[  DEBUG  ] ";
-#define     UNKNOWN            "[ UNKNOWN ] ";
+#define     UNKNOWN            "[ METHOD_UNKNOWN ] ";
 #define     PREFIX_LEN          12
 #define     CACHE_SIZE          50
 
 /** Returns the signal name according to the signal value */
-extern char *log_prefix (int logLevel);
+extern char * log_prefix (int logLevel);
 
 /** If the conditions are met, the message is written to the system log,and the device is daemon */
-extern void perr (bool condition, int logLevel, const char *message, ...);
+extern void perr (bool condition, int logLevel, const char * message, ...);
 
 
 #endif//__LOG_H_

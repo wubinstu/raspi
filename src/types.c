@@ -256,7 +256,7 @@ hash_node_t * hash_map_get (hash_map_t * map, int hash_index, int hash_key)
     return NULL;
 }
 
-void hash_map_put (hash_map_t * map, int hash_index, hash_node_t * new_node)
+void hash_map_add (hash_map_t * map, int hash_index, hash_node_t * new_node)
 {
     if (map == NULL || new_node == NULL)
         return;

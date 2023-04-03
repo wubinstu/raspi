@@ -88,6 +88,8 @@ int main (int argc, const char * argv[])
         sendData (LED_YEL);
         sleep (config_client.interval);
 
-//        break;
+        // 该条件永远不会成立, 这里只是为了消除 Clion 的无尽循环警告
+        if (time (NULL) == 0)
+            break;
     }
 }

@@ -985,6 +985,14 @@ void exitCleanupServ ()
     sql_pool_destroy (sql_pool_accept_raspi);
     thread_pool_destroy (thread_pool_accept_raspi);
     thread_pool_destroy (thread_pool_accept_http);
+    hash_map_destroy (hash_map_http);
+    hash_map_destroy (hash_map_raspi);
+    if (web_html_buf != NULL)
+        munmap (web_html_buf, web_html_size);
+    if (web_html_bg_png_buf != NULL)
+        munmap (web_html_bg_png_buf, web_html_bg_png_size);
+
+
     mysql_lib (false);
     exit (0);
 }

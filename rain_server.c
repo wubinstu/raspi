@@ -13,9 +13,10 @@
 #include "socket_fd.h"
 #include "run_server.h"
 #include "log.h"
+#include "filed.h"
 
 /// TODO
-/// mysql
+/// [Done] mysql
 /// [Done] thread pool
 /// webserver
 int main (int argc, const char * argv[])
@@ -69,25 +70,46 @@ int main (int argc, const char * argv[])
              "env_humi FLOAT(2),"
              "env_temp FLOAT(2))");
     int ret = mysql_query (for_init_table->connection, sql);
-    if (ret == 0)
-        printf ("Create table %s successfully\n", SQL_TABLE_RASPI);
-    else
+    if (ret != 0)
         perr (true, LOG_WARNING, "Create table Error: %d %s\n",
               mysql_errno (for_init_table->connection),
               mysql_error (for_init_table->connection));
-
     sql_pool_conn_release (sql_pool_accept_raspi, & for_init_table);
 
     hash_map_raspi = hash_map_init (HASH_MAP_SIZE);
+    hash_map_http = hash_map_init (HASH_MAP_SIZE);
+
+
+    web_html_fd = readOpen (WEB_HTML_PAGE);
+    web_html_bg_png_fd = readOpen (WEB_HTML_BG);
+    web_html_size = fileSize (WEB_HTML_PAGE);
+    web_html_bg_png_size = fileSize (WEB_HTML_BG);
+
+    web_html_buf = mmap (NULL, web_html_size, PROT_READ, MAP_PRIVATE, web_html_fd, 0);
+    web_html_bg_png_buf = mmap (NULL, web_html_bg_png_size, PROT_READ, MAP_PRIVATE, web_html_bg_png_fd, 0);
+
+//    close (web_html_fd);
+//    close (web_html_bg_png_fd);
+
 
     perr (!initServerSocket (), LOG_ERR,
           "function initServerSocket returns false when called main");
-
     loadSSLServ ();
 
     server_accept_raspi.epfd = createServEpoll (server_accept_raspi.fd);
+    server_accept_http.epfd = createServEpoll (server_accept_http.fd);
 
-    eventPoll (server_accept_raspi);
+    thread_id_server_accept_raspi = create_default_thread (raspiEventPoll, (void *) & server_accept_raspi);
+//    thread_id_server_accept_http = create_default_thread (httpEventPoll, (void *) & server_accept_http);
+
+    httpEventPoll ((void *) & server_accept_http);
+
+    while (true)
+    {
+        sleep (1);
+        if (time (NULL) == 0)
+            break;
+    }
 
     exitCleanupServ ();
     return 0;

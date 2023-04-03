@@ -18,9 +18,11 @@ extern void loadSSLServ ();
 
 extern void negotiateUUID (client_info_t * clientInfo);
 
-extern void eventPoll (server_info_t serverInfo);
+extern void * raspiEventPoll (void * args);
 
 extern void * processRaspiClient (void * args);
+
+extern void * httpEventPoll (void * args);
 
 extern void * processHttpClient (void * args);
 

@@ -56,6 +56,7 @@ add_library(web_http ${LIB_TYPE} src/web_http.c)
 add_executable(rain_client rain_client.c)
 add_executable(rain_server rain_server.c)
 add_executable(multi_client_test multi_client_test.c)
+add_executable(test test.c)
 
 #link
 if (NOT ${SIMULATOR})
@@ -73,11 +74,13 @@ target_link_libraries(self_sql mysqlclient)
 target_link_libraries(self_thread pthread)
 target_link_libraries(sql_pool self_sql self_thread)
 target_link_libraries(thread_pool self_thread)
+target_link_libraries(web_http arr)
 
 
 target_link_libraries(rain_client rsignal run_client)
-target_link_libraries(rain_server rsignal run_server sql_pool thread_pool)
+target_link_libraries(rain_server rsignal run_server sql_pool thread_pool web_http)
 
+target_link_libraries(test web_http filed)
 
 set(systemdUnit /usr/lib/systemd/system)
 install(TARGETS rain_client DESTINATION bin)

@@ -20,32 +20,46 @@ extern bool isEmptyL (const char msg[]);
 
 /**
  * Scan the string and return true if it contains the specified character */
-extern bool isContainC (char *msg, char c);
+extern bool isContainC (char * msg, char c);
 
 /**
  * Scan the string and return true if it contains the character which is NOT ASCII */
-extern bool notASCII (char *msg);
+extern bool notASCII (char * msg);
 
 /**
  * It is used to determine the comment in the configuration file.
  * Replace the first \\n in the incoming string with \\0 */
-extern void rmNextL (char *msg);
+extern void rmNextL (char * msg);
 
 /**
  * Scans the string and deletes the specified character */
-extern void rmCharacter (char *msg, char c);
+extern void rmCharacter (char * msg, char c);
 
 /**
  * Cut the string 'msg' from the specified character 'c' (which must exist),
  * and assign the two substrings to 's1' and 's2' respectively */
-extern void subString (char *msg, char c, char *s1, char *s2);
+extern void subString (char * msg, char c, char * s1, char * s2);
 
 /**
  * Converts all lowercase letters in a string to uppercase letters*/
-extern void upperConversion (char *msg);
+extern void upperConversion (char * msg);
 
 /**
  * Converts all uppercase letters in a string to lowercase letters*/
-extern void lowerConversion (char *msg);
+extern void lowerConversion (char * msg);
+
+/**
+ * count number to next space: ' ' */
+extern int lengthToNextSpace (char * msg);
+
+/**
+ * count number to next line: '\\n', "\\r\\n" */
+extern int lengthToNextLine (char * msg);
+
+/** move pointer strings to next line */
+extern int moveToNextLine (char ** msg);
+
+/** */
+extern int igStrCmp (char * s1, char * s2, int len);
 
 #endif

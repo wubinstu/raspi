@@ -19,6 +19,8 @@
 #include <syslog.h>
 #include <setjmp.h>
 #include <arpa/inet.h>
+#include <sys/sendfile.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>

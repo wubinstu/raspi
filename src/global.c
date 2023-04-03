@@ -23,10 +23,22 @@ thread_pool_t * thread_pool_accept_raspi = NULL;
 thread_pool_t * thread_pool_accept_http = NULL;
 
 hash_map_t * hash_map_raspi = NULL;
+hash_map_t * hash_map_http = NULL;
+
+pthread_t thread_id_server_accept_raspi = 0;
+pthread_t thread_id_server_accept_http = 0;
 
 struct epoll_event event_server_raspi[SERVER_EPOLL_SIZE];
+struct epoll_event event_server_http[SERVER_EPOLL_SIZE];
 
 int pid_file_fd = -1;
+int web_html_fd = -1;
+long web_html_size = -1;
+char * web_html_buf = NULL;
+int web_html_bg_png_fd = -1;
+long web_html_bg_png_size = -1;
+char * web_html_bg_png_buf = NULL;
+
 
 jmp_buf jmp_client_rest;
 jmp_buf jmp_server_rest;

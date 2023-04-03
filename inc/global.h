@@ -46,6 +46,9 @@
 #define PID_FILE_SERVER     "/var/run/rain_server.pid"
 #define TEMP_PATH           "/sys/class/thermal/thermal_zone0/temp"
 
+#define WEB_HTML_PAGE       "/home/wubin/raspi/web/page.html"
+#define WEB_HTML_BG         "/home/wubin/raspi/web/door.jpg"
+
 // 线程池, 连接池 相关参数
 //线程数量最小值 = CPU核心数 + 1
 //线程数量最大值 = CPU核心数 * (1 + 平均等待时间 / 平均执行时间)
@@ -64,31 +67,52 @@
 #define UUID_NONE           "UUID_NONE"
 
 
+#define CRLF                "\r\n"
+#define SPACE               ' '
+
+/** logs levels */
 extern int filed_logLevel;
 extern int rssl_logLevel;
 extern int socket_fd_logLevel;
 
-/** client's configuration file options */
+/** configuration file options */
 extern ConfOptClnt config_client;
-/** server's configuration file options */
 extern ConfOptServ config_server;
+
 /** a structural with CPU/environmental temperature,ultrasonic distance,etc */
 extern RaspiMonitData raspi_monit_data;
 
+/** server address information */
 extern server_info_t raspi_connect_server;
 extern server_info_t server_accept_raspi;
 extern server_info_t server_accept_http;
 
+/** pools */
 extern sql_pool_t * sql_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_http;
 
+/** hash maps (to save clients infos) */
 extern hash_map_t * hash_map_raspi;
+extern hash_map_t * hash_map_http;
 
-/** pid file fd */
+/** thread id for server epolls */
+extern pthread_t thread_id_server_accept_raspi;
+extern pthread_t thread_id_server_accept_http;
+
+/** epoll events for server */
+extern struct epoll_event event_server_raspi[SERVER_EPOLL_SIZE];
+extern struct epoll_event event_server_http[SERVER_EPOLL_SIZE];
+
+/** server and client pid file fd */
 extern int pid_file_fd;
 
-extern struct epoll_event event_server_raspi[SERVER_EPOLL_SIZE];
+extern int web_html_fd;
+extern long web_html_size;
+extern char * web_html_buf;
+extern int web_html_bg_png_fd;
+extern long web_html_bg_png_size;
+extern char * web_html_bg_png_buf;
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;
