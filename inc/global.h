@@ -93,8 +93,8 @@ extern thread_pool_t * thread_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_http;
 
 /** hash maps (to save clients infos) */
-extern hash_map_t * hash_map_raspi;
-extern hash_map_t * hash_map_http;
+extern hash_table_t * hash_map_raspi;
+extern hash_table_t * hash_map_http;
 
 /** thread id for server epolls */
 extern pthread_t thread_id_server_accept_raspi;

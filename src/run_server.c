@@ -141,7 +141,7 @@ void * raspiEventPoll (void * args)
     thread_task_t task;
 //    const int EPOLL_SIZE = 50;
     socklen_t client_addr_size;
-    hash_node_t * client_hash_node;
+    hash_node_client_t * client_hash_node;
     struct sockaddr_in client_addr;
     struct epoll_event /* ev[EPOLL_SIZE], */ client_ev;
 
@@ -160,8 +160,7 @@ void * raspiEventPoll (void * args)
                 event_server_raspi[i].events & EPOLLERR ||
                 event_server_raspi[i].events & EPOLLHUP)
             {
-                client_hash_node = hash_map_get (hash_map_raspi, event_server_raspi[i].data.fd,
-                                                 event_server_raspi[i].data.fd);
+                client_hash_node = hash_table_get (hash_map_raspi, event_server_raspi[i].data.fd);
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_raspi[i].data.fd, NULL);
 
                 if (client_hash_node != NULL)
@@ -178,7 +177,7 @@ void * raspiEventPoll (void * args)
                         SSL_free (client_hash_node->clientInfo.ssl_fd);
                     }
                     close (client_hash_node->clientInfo.fd);
-                    hash_map_del (hash_map_raspi, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
+                    hash_table_del (hash_map_raspi, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
                 }
                 continue;
             }
@@ -203,7 +202,7 @@ void * raspiEventPoll (void * args)
                 perr (true, LOG_INFO,
                       "raspiEventPoll: accept a client[%d] form %s:%d",
                       client_ev.data.fd, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port));
-                client_hash_node = calloc (1, sizeof (hash_node_t));
+                client_hash_node = calloc (1, sizeof (hash_node_client_t));
 
 
                 client_hash_node->next = NULL;
@@ -215,14 +214,13 @@ void * raspiEventPoll (void * args)
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
                 client_hash_node->clientInfo.sql = NULL;  // sql_pool_conn_fetch (sql_pool_accept_raspi);
                 memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
-                hash_map_add (hash_map_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
+                hash_table_add (hash_map_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
 
             }
                 // 其他套接字事件, 一般是客户端套接字
             else
             {
-                client_hash_node = hash_map_get (hash_map_raspi, event_server_raspi[i].data.fd,
-                                                 event_server_raspi[i].data.fd);
+                client_hash_node = hash_table_get (hash_map_raspi, event_server_raspi[i].data.fd);
                 memset (& task, 0, sizeof (task));
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
@@ -252,7 +250,7 @@ void * processRaspiClient (void * args)
     int client_fd = * (int *) args;
     int read_len;
     uuid_t id_zero = {0};
-    hash_node_t * task_client = hash_map_get (hash_map_raspi, client_fd, client_fd);
+    hash_node_client_t * task_client = hash_table_get (hash_map_raspi, client_fd);
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_raspi.sslEnable && !task_client->clientInfo.sslEnable)
@@ -287,7 +285,7 @@ void * processRaspiClient (void * args)
                   ntohs (task_client->clientInfo.addr.sin_port));
             ERR_print_errors_fp (stdout);
 //            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
-//            hash_map_del (hash_map_raspi, task_client->clientInfo.fd, task_client->clientInfo.fd);
+//            hash_table_del (hash_map_raspi, task_client->clientInfo.fd, task_client->clientInfo.fd);
 
             // 服务器关闭套接字, 触发HUP事件
             close (task_client->clientInfo.fd);
@@ -355,7 +353,7 @@ void * httpEventPoll (void * args)
     int ev_num;
     thread_task_t task;
     socklen_t client_addr_size;
-    hash_node_t * client_hash_node;
+    hash_node_client_t * client_hash_node;
     struct sockaddr_in client_addr;
     struct epoll_event client_ev;
 
@@ -374,8 +372,7 @@ void * httpEventPoll (void * args)
                 event_server_http[i].events & EPOLLERR ||
                 event_server_http[i].events & EPOLLHUP)
             {
-                client_hash_node = hash_map_get (hash_map_http, event_server_http[i].data.fd,
-                                                 event_server_http[i].data.fd);
+                client_hash_node = hash_table_get (hash_map_http, event_server_http[i].data.fd);
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_http[i].data.fd, NULL);
 
                 if (client_hash_node != NULL)
@@ -390,7 +387,7 @@ void * httpEventPoll (void * args)
                         SSL_free (client_hash_node->clientInfo.ssl_fd);
                     }
                     close (client_hash_node->clientInfo.fd);
-                    hash_map_del (hash_map_http, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
+                    hash_table_del (hash_map_http, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
                 }
                 continue;
             }
@@ -408,14 +405,14 @@ void * httpEventPoll (void * args)
                 // 设置客户端套接字: 非阻塞
                 setSockFlag (client_ev.data.fd, O_NONBLOCK, true);
                 // 设置客户端套接字: KeepAlive
-                sockKeepAlive (client_ev.data.fd);
+                //sockKeepAlive (client_ev.data.fd);
                 // 设置客户端套接字: 关注的事件
                 client_ev.events = EPOLLIN /*| EPOLLET*/ | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_ADD, client_ev.data.fd, & client_ev);
                 perr (true, LOG_INFO,
                       "httpEventPoll: accept a client[%d] form %s:%d",
                       client_ev.data.fd, inet_ntoa (client_addr.sin_addr), ntohs (client_addr.sin_port));
-                client_hash_node = calloc (1, sizeof (hash_node_t));
+                client_hash_node = calloc (1, sizeof (hash_node_client_t));
 
 
                 client_hash_node->next = NULL;
@@ -427,14 +424,13 @@ void * httpEventPoll (void * args)
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
                 client_hash_node->clientInfo.sql = NULL;
                 memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
-                hash_map_add (hash_map_http, (int) client_hash_node->hash_node_key, client_hash_node);
+                hash_table_add (hash_map_http, (int) client_hash_node->hash_node_key, client_hash_node);
 
             }
                 // 其他套接字事件, 一般是客户端套接字
             else
             {
-                client_hash_node = hash_map_get (hash_map_http, event_server_http[i].data.fd,
-                                                 event_server_http[i].data.fd);
+                client_hash_node = hash_table_get (hash_map_http, event_server_http[i].data.fd);
                 memset (& task, 0, sizeof (task));
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
@@ -453,7 +449,7 @@ void * processHttpClient (void * args)
 {
     int client_fd = * (int *) args;
     int read_len;
-    hash_node_t * task_client = hash_map_get (hash_map_http, client_fd, client_fd);
+    hash_node_client_t * task_client = hash_table_get (hash_map_http, client_fd);
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_http.sslEnable && !task_client->clientInfo.sslEnable)
@@ -489,7 +485,7 @@ void * processHttpClient (void * args)
                   ntohs (task_client->clientInfo.addr.sin_port));
             ERR_print_errors_fp (stdout);
             epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
-            hash_map_del (hash_map_http, task_client->clientInfo.fd, task_client->clientInfo.fd);
+            hash_table_del (hash_map_http, task_client->clientInfo.fd, task_client->clientInfo.fd);
             close (task_client->clientInfo.fd);
             return (void *) -1;
         }
@@ -505,7 +501,6 @@ void * processHttpClient (void * args)
 
 
     http_response_t * res = http_response_generate (req->version, HTTP_200, keepalive);
-//    char buf[9000000000] = {0};
     char * buf = calloc (3, 1024 * 1024);
     // 初始请求
     if (strlen (req->URI) == 1)
@@ -526,12 +521,12 @@ void * processHttpClient (void * args)
 //        writeClient (task_client->clientInfo, buf, (int) strlen (buf));
 //        writeClient (task_client->clientInfo, "\r\n", 2);
 //        writeClient (task_client->clientInfo, web_html_bg_png_buf, (int) web_html_bg_png_size);
-    } else if (igStrCmp (req->URI, "/get_data", (int) strlen (req->URI)) == 0)
+    } else if (igStrCmp (req->URI, "/fetch_all_data", (int) strlen (req->URI)) == 0)
     {
-        char buf_json[150];
-        http_response_add_content (res,
-                                   "{\"data\": [{\"label\": \"Temperature\", \"value\": \"25C\"}, {\"label\": \"Humidity\", \"value\": \"60%%\"}]}",
-                                   92, application_json);
+//        char buf_json[] = "{\"data\": [{\"label\": \"Temperature\", \"value\": \"25C\"}, {\"label\": \"Humidity\", \"value\": \"60%\"}]}";
+        char buf_json[] = "[{ \"timeStamp\": \"20:07\", \"clientID\": \"abc\", \"cpuTemp\": \"51.2C\", \"distance\": \"123.45\", \"envTemp\": \"23.12\", \"envHumi\": \"34%\"}, "
+                          "{ \"timeStamp\": \"12:07\", \"clientID\": \"efg\", \"cpuTemp\": \"44.5C\", \"distance\": \"654.12\", \"envTemp\": \"12.45\", \"envHumi\": \"78%\"}]";
+        http_response_add_content (res, buf_json, (int) strlen (buf_json), application_json);
         char * end = http_response_tostring (res, buf);
         writeClient (task_client->clientInfo, buf, (int) (end - buf));
     }

@@ -209,61 +209,64 @@ int ListToArry (PLinkNode L, KeyValuePair e[])
 }
 
 
-hash_map_t * hash_map_init (int size)
+hash_table_t * hash_table_init (int size)
 {
-    hash_map_t * map = (hash_map_t *) calloc (1, sizeof (hash_map_t));
-    if (map == NULL)return map;
-    map->size = size;
-    map->hashMap = (hash_node_t **) calloc (size, sizeof (hash_node_t *));
-    return map;
+    hash_table_t * table = (hash_table_t *) calloc (1, sizeof (hash_table_t));
+    if (table == NULL)return table;
+    table->size = size;
+    table->current = 0;
+    table->hashTable = (hash_node_client_t **) calloc (size, sizeof (hash_node_client_t *));
+    return table;
 }
 
-void hash_map_destroy (hash_map_t * map)
+void hash_table_destroy (hash_table_t * table)
 {
-    if (map == NULL)return;
-    hash_node_t * node, * free_node;
-    for (unsigned int i = 0; i < map->size; i++)
-    {
-        if (map->hashMap[i] != NULL)
+    if (table == NULL)return;
+    hash_node_client_t * node, * free_node;
+    if (table->current > 0)
+        for (unsigned int i = 0; i < table->size; i++)
         {
-            node = map->hashMap[i];
-            while (node != NULL)
+            if (table->hashTable[i] != NULL)
             {
-                free_node = node;
-                node = node->next;
-                free (free_node);
+                node = table->hashTable[i];
+                while (node != NULL)
+                {
+                    free_node = node;
+                    node = node->next;
+                    free (free_node);
+                    table->current--;
+                }
+                table->hashTable[i] = NULL;
             }
-            map->hashMap[i] = NULL;
         }
-    }
-    free (map->hashMap);
-    map->size = -1;
-    free (map);
+    free (table->hashTable);
+    table->size = -1;
+    free (table);
 }
 
-hash_node_t * hash_map_get (hash_map_t * map, int hash_index, int hash_key)
+hash_node_client_t * hash_table_get (hash_table_t * table, int hash_index)
 {
-    if (map == NULL || hash_index < 0 || hash_key < 0)
+    if (table == NULL || table->current <= 0 || hash_index < 0)
         return NULL;
 
-    hash_node_t * node = map->hashMap[hash_index % map->size];
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
     while (node != NULL)
     {
-        if (node->hash_node_key == hash_key)
+        if (node->hash_node_key == hash_index)
             return node;
         node = node->next;
     }
     return NULL;
 }
 
-void hash_map_add (hash_map_t * map, int hash_index, hash_node_t * new_node)
+void hash_table_add (hash_table_t * table, int hash_index, hash_node_client_t * new_node)
 {
-    if (map == NULL || new_node == NULL)
+    if (table == NULL || table->current >= table->size || new_node == NULL)
         return;
 
-    hash_node_t * node = map->hashMap[hash_index % map->size];
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
     if (node == NULL)
-        map->hashMap[hash_index % map->size] = new_node;
+        table->hashTable[hash_index % table->size] = new_node;
     else
     {
         while (node->next != NULL)
@@ -272,21 +275,23 @@ void hash_map_add (hash_map_t * map, int hash_index, hash_node_t * new_node)
         node->next = new_node;
         new_node->next = NULL;
     }
+    table->current++;
 }
 
-void hash_map_del (hash_map_t * map, int hash_index, int hash_key)
+void hash_table_del (hash_table_t * table, int hash_index, int hash_key)
 {
-    if (map == NULL || hash_index < 0 || hash_key < 0)
+    if (table == NULL || table->current <= 0 || hash_index < 0 || hash_key < 0)
         return;
 
-    hash_node_t * free_node;
-    hash_node_t * node = map->hashMap[hash_index % map->size];
+    hash_node_client_t * free_node;
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
 
     if (node != NULL)
         if (node->hash_node_key == hash_key)
         {
-            map->hashMap[hash_index % map->size] = node->next;
+            table->hashTable[hash_index % table->size] = node->next;
             free (node);
+            table->current--;
             return;
         }
 
@@ -300,6 +305,8 @@ void hash_map_del (hash_map_t * map, int hash_index, int hash_key)
                 free_node = node->next;
                 node->next = free_node->next;
                 free (free_node);
+                table->current--;
+                return;
             }
         }
         node = node->next;

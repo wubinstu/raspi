@@ -172,19 +172,33 @@ typedef struct thread_pool
     pthread_cond_t not_empty;           // 条件变量, 表示任务队列有任务(至少存在一个任务)
 } thread_pool_t;
 
-typedef struct hash_node
+
+typedef struct hash_node_client_info
 {
     unsigned int hash_node_key;
     client_info_t clientInfo;
-    struct hash_node * next;
-} hash_node_t;
+    struct hash_node_client_info * next;
+} hash_node_client_t;
 
-
+/// Save the client address information
 typedef struct hash_map
 {
     int size;
-    hash_node_t ** hashMap;
-} hash_map_t;
+    int current;
+    hash_node_client_t ** hashTable;
+} hash_table_t;
+
+
+typedef struct real_time_information_obtained_from_the_client
+{
+    char date[10];
+    char time[8];
+    int socket_fd;
+    char uuid[36];
+    RaspiMonitData monitData;
+} hash_node_sql_data_t;
+
+
 
 
 // 作者真正意义上第一次接触 web 开发(即使本工程并不会写出一个完善的 web 服务器)
@@ -481,15 +495,15 @@ extern void DisplayLinkList (PLinkNode L);
  * The array space needs to be allocated in advance*/
 extern int ListToArry (PLinkNode L, KeyValuePair e[]);
 
-extern hash_map_t * hash_map_init (int size);
+extern hash_table_t * hash_table_init (int size);
 
-extern void hash_map_destroy (hash_map_t * map);
+extern void hash_table_destroy (hash_table_t * table);
 
-extern hash_node_t * hash_map_get (hash_map_t * map, int hash_index, int hash_key);
+extern hash_node_client_t * hash_table_get (hash_table_t * table, int hash_index);
 
-extern void hash_map_add (hash_map_t * map, int hash_index, hash_node_t * new_node);
+extern void hash_table_add (hash_table_t * table, int hash_index, hash_node_client_t * new_node);
 
-extern void hash_map_del (hash_map_t * map, int hash_index, int hash_key);
+extern void hash_table_del (hash_table_t * table, int hash_index, int hash_key);
 
 
 #endif

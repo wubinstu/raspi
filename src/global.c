@@ -22,8 +22,8 @@ sql_pool_t * sql_pool_accept_raspi = NULL;
 thread_pool_t * thread_pool_accept_raspi = NULL;
 thread_pool_t * thread_pool_accept_http = NULL;
 
-hash_map_t * hash_map_raspi = NULL;
-hash_map_t * hash_map_http = NULL;
+hash_table_t * hash_map_raspi = NULL;
+hash_table_t * hash_map_http = NULL;
 
 pthread_t thread_id_server_accept_raspi = 0;
 pthread_t thread_id_server_accept_http = 0;

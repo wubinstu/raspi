@@ -1,57 +1,16 @@
-<!--<!DOCTYPE html>-->
-<!--<html lang="zh">-->
-<!--<head>-->
-<!--    <meta charset="utf-8">-->
-<!--    <title>Dynamic Linked List Display</title>-->
-<!--    <style>-->
-<!--        .list-item {-->
-<!--            border: 1px solid gray;-->
-<!--            padding: 10px;-->
-<!--            margin: 5px;-->
-<!--        }-->
-<!--    </style>-->
-<!--</head>-->
-<!--<body>-->
-<!--<div id="list-container"></div>-->
-
-<!--<script>-->
-<!--    // 发送GET请求获取链表数据-->
-<!--    let xhr = new XMLHttpRequest();-->
-<!--    xhr.onreadystatechange = function () {-->
-<!--        if (xhr.readyState === XMLHttpRequest.DONE) {-->
-<!--            if (xhr.status === 200) {-->
-<!--                // 解析响应数据并创建页面元素-->
-<!--                let list = JSON.parse(xhr.responseText);-->
-<!--                let listContainer = document.getElementById("list-container");-->
-<!--                listContainer.innerHTML = "";-->
-<!--                for (let i = 0; i < list.length; i++) {-->
-<!--                    let listItem = document.createElement("div");-->
-<!--                    listItem.className = "list-item";-->
-<!--                    listItem.innerHTML = list[i];-->
-<!--                    listContainer.appendChild(listItem);-->
-<!--                }-->
-<!--            }-->
-<!--        }-->
-<!--    };-->
-<!--    xhr.open("GET", "/get_list", true);-->
-<!--    xhr.send();-->
-
-<!--    // 每隔1秒钟重新获取数据并更新页面元素-->
-<!--    setInterval(function () {-->
-<!--        xhr.open("GET", "/get_list", true);-->
-<!--        xhr.send();-->
-<!--    }, 1000);-->
-<!--</script>-->
-<!--</body>-->
-<!--</html>-->
-
-
 <!DOCTYPE html>
 <html lang="zh">
 <head>
     <title>Project Rain</title>
+
     <style>
+        /* 设置页面背景 */
         body {
+            position: relative;
+            background-color: #ffb3ba;
+            background-image: url('door.jpg');
+            background-size: cover;
+            background-blur: 10px;
             font-family: Arial, sans-serif;
             font-size: 16px;
             line-height: 1.6;
@@ -60,67 +19,17 @@
         }
 
         .container {
+            position: relative;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-        }
-
-        .list {
-            list-style-type: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .list li {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .list li:last-child {
-            border-bottom: none;
-        }
-
-        .list li .label {
-            font-weight: bold;
-            margin-right: 10px;
-        }
-
-        h1, p {
-            margin: 10px 0;
-        }
-    </style>
-
-    <!--    -->
-    <style>
-        /* 设置页面背景 */
-        body {
-            position: relative;
-            backdrop-filter: blur(10px) brightness(80%);
-            background-color: #ffb3ba;
-            /*background-image: url('door.jpg');*/
-            background-size: cover;
-            background-blur: 10px;
-        }
-
-        .container {
-            position: relative;
-        }
-
-        /* 在 container div 中添加一个新的 div 用于高斯模糊背景 */
-        body:before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            filter: blur(1px);
-            z-index: -1;
+            backdrop-filter: blur(10px) brightness(90%);
         }
 
         /* 隐藏列表的边框线 */
         .list {
             list-style: none;
+            margin: 0;
             padding: 0;
         }
 
@@ -128,12 +37,23 @@
         .list li {
             margin: 10px;
             padding: 10px;
+            border-bottom: 1px solid #eee;
             background-color: rgba(255, 255, 255, 0.5);
             box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
             border-radius: 10px;
             opacity: 0;
             animation: fadeIn 1s ease forwards;
         }
+
+        .list li:last-child {
+            border-bottom: none;
+        }
+
+        .list li .raspi {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
 
         /* 设置列表项的特效 */
         .list li:nth-child(odd) {
@@ -145,7 +65,7 @@
             transform: translateX(50px);
             animation: slideInRight 1s ease forwards;
         }
-
+        
         /* 动画效果 */
         @keyframes fadeIn {
             from {
@@ -177,32 +97,56 @@
                 opacity: 1;
             }
         }
-
-        /* 设置标签的样式 */
-        .label {
-            font-weight: bold;
-            color: #d90429;
-        }
-
     </style>
-    <!--    -->
 </head>
 <body>
 <div class="container">
     <h3>Project Rain for RaspberryPi 4B Clients Data Monitor</h3>
-    <p>This is a dynamic list that will update as the server sends new data.</p>
+    <div>
+        <!-- 开启定时器-->
+        <button type="button" class="list_controller" id="enableAutoUpdate" onclick="enableAutoUpdate()">
+            enableAutoUpdate
+        </button>
+        <!--关闭定时器-->
+        <button type="button" class="list_controller" id="disableAutoUpdate" onclick="disableAutoUpdate()">
+            disableAutoUpdate
+        </button>
+        <!--手动取一次数据-->
+        <button type="button" class="list_controller" id="updateOnce" onclick="fetchOnce()">
+            fetchOnce
+        </button>
+        <!--清屏-->
+        <button type="button" class="list_controller" id="clearScreen" onclick="clearScreen()">
+            ClearScreen
+        </button>
+    </div>
+
     <ul class="list" id="list">
-        <li>Initial element</li>
+        <li>
+            <span class="raspi">Initial List</span>
+        </li>
     </ul>
 </div>
 <script>
 
-    function updateList(data) {
-        let list = document.getElementById("list");
+    class ClientData {
+        timeStamp;
+        clientID;
+        cpuTemp;
+        distance;
+        envTemp;
+        envHumi;
+    }
+
+    /**
+     * @param {ClientData[]} data - 客户端数据对象数组 */
+    function updateList(data /**  ClientData[] */) {
+        const list = document.getElementById("list");
         // Remove any excess list items
         while (list.children.length > data.length + 1) {
             list.removeChild(list.lastChild);
         }
+
         // Update existing list items and add new ones
         for (let i = 0; i < data.length; i++) {
             let item = list.children[i + 1];
@@ -210,28 +154,54 @@
                 item = document.createElement("li");
                 list.appendChild(item);
             }
-            item.innerHTML = "<span class=\"label\">" + data[i].label + ":</span>" + data[i].value;
+            item.innerHTML = "<span class=\"raspi\">[ " + data[i].timeStamp + " ] ID: "
+                + data[i].clientID + ", cpuTemp: " + data[i].cpuTemp + ", distance: "
+                + data[i].distance + ", encTemp: " + data[i].envTemp + ", envHumi: "
+                + data[i].envHumi + "</span>";
         }
-        console.log("function updateList called");
+        if (list.children.length <= 1)
+            list.children[0].innerHTML = "<span class=\"raspi\">There Is No Client Connection</span>";
+        else list.children[0].innerHTML = "<span class=\"raspi\">Client Connection List:</span>";
     }
 
     let xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            let data = JSON.parse(xhr.responseText);
-            console.log("resTex: " + xhr.responseText);
-            console.log("after JSON.parse: " + data);
-            updateList(data);
+        if (this.readyState === 4 && this.status === 200) {
+            const data = JSON.parse(this.responseText);
+            if (Array.isArray(data) && data.every(item => item instanceof ClientData))
+                updateList(data);
+            else console.log("Unknown JSON formation: " + this.responseText);
         }
     };
 
+    let auto_update_date = setInterval(queryData, 10000);
+
+    function enableAutoUpdate() {
+        auto_update_date = setInterval(queryData, 10000);
+    }
+
+    function disableAutoUpdate() {
+        clearInterval(auto_update_date);
+    }
+
+    function fetchOnce() {
+        clearInterval(auto_update_date);
+        queryData();
+    }
+
+    function clearScreen() {
+        updateList([]);
+    }
+
     function queryData() {
-        xhr.open("GET", "/get_data", true);
+        xhr.open("GET", "/fetch_all_data", true);
         xhr.send();
     }
 
-    setInterval(queryData, 10000);
+
 </script>
+
+
 </body>
 </html>
 

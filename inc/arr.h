@@ -53,13 +53,13 @@ extern void lowerConversion (char * msg);
 extern int lengthToNextSpace (char * msg);
 
 /**
- * count number to next line: '\\n', "\\r\\n" */
+ * Count number to next line: '\\n', "\\r\\n" */
 extern int lengthToNextLine (char * msg);
 
-/** move pointer strings to next line */
+/** Move pointer strings to next line */
 extern int moveToNextLine (char ** msg);
 
-/** */
+/** String comparison that ignore case */
 extern int igStrCmp (char * s1, char * s2, int len);
 
 #endif

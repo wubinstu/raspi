@@ -76,8 +76,8 @@ int main (int argc, const char * argv[])
               mysql_error (for_init_table->connection));
     sql_pool_conn_release (sql_pool_accept_raspi, & for_init_table);
 
-    hash_map_raspi = hash_map_init (HASH_MAP_SIZE);
-    hash_map_http = hash_map_init (HASH_MAP_SIZE);
+    hash_map_raspi = hash_table_init (HASH_MAP_SIZE);
+    hash_map_http = hash_table_init (HASH_MAP_SIZE);
 
 
     web_html_fd = readOpen (WEB_HTML_PAGE);
