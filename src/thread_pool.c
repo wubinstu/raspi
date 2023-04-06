@@ -4,6 +4,8 @@
 #include "log.h"
 #include "self_thread.h"
 #include "thread_pool.h"
+#include "global.h"
+
 
 thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thread_min_num, unsigned int queue_max_num)
 {
@@ -188,10 +190,10 @@ void * thread_pool_manage (void * args)
     int counter = 0;
     unsigned int queue_cur;
     unsigned int thread_max, thread_min, thread_alive, thread_busy;
-    const int TASK_QUEUE_MAX_WAIT = 10, THREAD_NUM_ADJUST = 2;
+    const int TASK_QUEUE_MAX_WAIT = 10, THREAD_NUM_ADJUST = POOL_MANAGER_ADJUST_BY_PER;
     while (!pool->shutdown)
     {
-        sleep (3);
+        sleep (POOL_MANAGER_SLEEP_TIME);
         lock_robust_mutex (& pool->lock);
         shutdown = pool->shutdown;
         thread_max = pool->thread_max;

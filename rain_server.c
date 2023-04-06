@@ -25,6 +25,7 @@ int main (int argc, const char * argv[])
     preRunTimeArgsServ (argc, argv);
     confToVarServ ();
     runTimeArgsServ (argc, argv);
+    openlog (PROJECT_SERVER_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
 
 
     if (strcmp (config_server.pidFile, "disable") != 0)
@@ -76,20 +77,21 @@ int main (int argc, const char * argv[])
               mysql_error (for_init_table->connection));
     sql_pool_conn_release (sql_pool_accept_raspi, & for_init_table);
 
-    hash_map_raspi = hash_table_init (HASH_MAP_SIZE);
-    hash_map_http = hash_table_init (HASH_MAP_SIZE);
+    hash_table_raspi = hash_table_client_init (HASH_TABLE_SIZE);
+    hash_table_http = hash_table_client_init (HASH_TABLE_SIZE);
+    hash_table_info_raspi_http = hash_table_info_init (HASH_TABLE_SIZE);
 
 
     web_html_fd = readOpen (WEB_HTML_PAGE);
-    web_html_bg_png_fd = readOpen (WEB_HTML_BG);
+    web_html_bg_image_fd = readOpen (WEB_HTML_BG);
     web_html_size = fileSize (WEB_HTML_PAGE);
-    web_html_bg_png_size = fileSize (WEB_HTML_BG);
+    web_html_bg_image_size = fileSize (WEB_HTML_BG);
 
     web_html_buf = mmap (NULL, web_html_size, PROT_READ, MAP_PRIVATE, web_html_fd, 0);
-    web_html_bg_png_buf = mmap (NULL, web_html_bg_png_size, PROT_READ, MAP_PRIVATE, web_html_bg_png_fd, 0);
+    web_html_bg_image_buf = mmap (NULL, web_html_bg_image_size, PROT_READ, MAP_PRIVATE, web_html_bg_image_fd, 0);
 
 //    close (web_html_fd);
-//    close (web_html_bg_png_fd);
+//    close (web_html_bg_image_fd);
 
 
     perr (!initServerSocket (), LOG_ERR,
@@ -100,13 +102,14 @@ int main (int argc, const char * argv[])
     server_accept_http.epfd = createServEpoll (server_accept_http.fd);
 
     thread_id_server_accept_raspi = create_default_thread (raspiEventPoll, (void *) & server_accept_raspi);
-//    thread_id_server_accept_http = create_default_thread (httpEventPoll, (void *) & server_accept_http);
+    thread_id_server_accept_http = create_default_thread (httpEventPoll, (void *) & server_accept_http);
 
-    httpEventPoll ((void *) & server_accept_http);
+//    raspiEventPoll ((void *) & server_accept_raspi);
+//    httpEventPoll ((void *) & server_accept_http);
 
     while (true)
     {
-        sleep (1);
+        sleep (10);
         if (time (NULL) == 0)
             break;
     }

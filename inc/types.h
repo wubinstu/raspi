@@ -125,6 +125,7 @@ typedef struct client_info
     SSL * ssl_fd;                       // SSL 套接字,加密算法,密钥,缓冲区
     bool sslEnable;                     // 是否启用 SSL 连接
     sql_node_t * sql;                   // MySQL 数据库连接
+    pthread_mutex_t onProcess;          // 线程池中单独一条线程处理,同一时间只能由一个线程处理同一个客户端
 } client_info_t;
 
 // 线程池任务结构体
@@ -181,29 +182,49 @@ typedef struct hash_node_client_info
 } hash_node_client_t;
 
 /// Save the client address information
-typedef struct hash_map
+/// only httpEventPoll modify it, so it does not need pthread_mutex
+/// 事实证明我想错了, 这里仍然需要使用同步锁
+typedef struct hash_table_client
 {
     int size;
     int current;
+    pthread_rwlock_t lock;
     hash_node_client_t ** hashTable;
-} hash_table_t;
+} hash_table_client_t;
 
 
 typedef struct real_time_information_obtained_from_the_client
 {
-    char date[10];
-    char time[8];
+    char time_stamp[20];
     int socket_fd;
-    char uuid[36];
+    char uuid[37];
     RaspiMonitData monitData;
+    struct real_time_information_obtained_from_the_client * next;
 } hash_node_sql_data_t;
 
-
+/// 存储树莓派客户端的即时消息
+// 1. 只有一个线程需要读取该区域, 并且是读取该区域的所有数据, 耗时相对较长, 不能有打扰
+// 2. 大量的多个线程需要对该区域进行写操作, 但是这些线程之间不存在互斥关系, 因为它们约定好了各自只修改和自己有关的公共区域的一部分
+// 3. 要求读取线程工作时不允许其他线程写操作, 其他时间写操作线程自由写操作
+// 这里使用读写锁完成这个功能, 需要注意的是, 意思反了过来
+// 即读锁当作写锁用, 写锁当作读锁用, 当需要写操作时, 我们挂上读锁, 反之挂写锁
+// 以上是首次的想法, 但是实际上需要读取的线程可能远远不在于少数, 因为这取决于浏览器客户端的数量
+// 所以这里仍然按照POSIX库的名称定义使用
+// ................
+// 还是按照第一版的定义将读写锁反过来用吧
+typedef struct hash_table_info
+{
+    int size;
+    int current;
+    pthread_rwlock_t lock;
+//    atomic_int read_lock;
+//    atomic_int write_lock;
+    hash_node_sql_data_t ** hashTable;
+} hash_table_info_t;
 
 
 // 作者真正意义上第一次接触 web 开发(即使本工程并不会写出一个完善的 web 服务器)
 // 这里将本人不清楚的前端概念以注释的形式写在这里, 因此篇幅偏长
-
 enum http_version_t
 {
     VERSION_UNKNOWN = 0,
@@ -495,15 +516,22 @@ extern void DisplayLinkList (PLinkNode L);
  * The array space needs to be allocated in advance*/
 extern int ListToArry (PLinkNode L, KeyValuePair e[]);
 
-extern hash_table_t * hash_table_init (int size);
+extern hash_table_client_t * hash_table_client_init (int size);
 
-extern void hash_table_destroy (hash_table_t * table);
+extern void hash_table_client_destroy (hash_table_client_t * table);
 
-extern hash_node_client_t * hash_table_get (hash_table_t * table, int hash_index);
+extern hash_node_client_t * hash_table_client_get (hash_table_client_t * table, int hash_index);
 
-extern void hash_table_add (hash_table_t * table, int hash_index, hash_node_client_t * new_node);
+extern void hash_table_client_add (hash_table_client_t * table, int hash_index, hash_node_client_t * new_node);
 
-extern void hash_table_del (hash_table_t * table, int hash_index, int hash_key);
+extern void hash_table_client_del (hash_table_client_t * table, int hash_index);
 
+extern hash_table_info_t * hash_table_info_init (int size);
+
+extern void hash_table_info_destroy (hash_table_info_t * table);
+
+extern bool hash_table_info_update (hash_table_info_t * table, hash_node_sql_data_t * new_data, struct timespec time);
+
+extern void hash_table_info_delete (hash_table_info_t * table, int hash_index);
 
 #endif

@@ -56,7 +56,7 @@ add_library(web_http ${LIB_TYPE} src/web_http.c)
 add_executable(rain_client rain_client.c)
 add_executable(rain_server rain_server.c)
 add_executable(multi_client_test multi_client_test.c)
-add_executable(test test.c)
+add_executable(test test.c src/types.c)
 
 #link
 if (NOT ${SIMULATOR})
@@ -80,7 +80,7 @@ target_link_libraries(web_http arr)
 target_link_libraries(rain_client rsignal run_client)
 target_link_libraries(rain_server rsignal run_server sql_pool thread_pool web_http)
 
-target_link_libraries(test web_http filed)
+target_link_libraries(test web_http filed pthread)
 
 set(systemdUnit /usr/lib/systemd/system)
 install(TARGETS rain_client DESTINATION bin)

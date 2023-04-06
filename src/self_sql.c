@@ -34,9 +34,7 @@ MYSQL * mysql_server_connection (MYSQL * sql)
 int mysql_insert_values (MYSQL * sql, const char * table_name,
                          const char * fields, const char * values)
 {
-    char * cmd = calloc (1, 1024);
-    if (cmd == NULL)
-        return -1;
+    char cmd[1024];
     strcpy (cmd, "insert into ");
     strcat (cmd, table_name);
     strcat (cmd, " ");
@@ -45,7 +43,6 @@ int mysql_insert_values (MYSQL * sql, const char * table_name,
     strcat (cmd, "values ");
     strcat (cmd, values);
     int rtn = mysql_query (sql, cmd);
-    free (cmd);
     return rtn;
 }
 
@@ -55,7 +52,7 @@ int mysql_select_query (MYSQL * sql, const char * table_name,
                         const char * where_condition, const char * order_condition,
                         const char * group_condition)
 {
-    char * cmd = calloc (1, 1024);
+    char cmd[1024];
 
     strcpy (cmd, "select ");
     strcat (cmd, fields_list);
@@ -87,6 +84,5 @@ int mysql_select_query (MYSQL * sql, const char * table_name,
     }
     int rtn;
     rtn = mysql_query (sql, cmd);
-    free (cmd);
     return rtn;
 }

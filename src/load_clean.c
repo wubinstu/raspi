@@ -105,8 +105,8 @@ void daemonize (const char * cmd)
 void preRunTimeArgsServ (int argc, const char * argv[])
 {
     int errno_save = errno;
-    char * args = calloc (1, 30);
-    char * value = calloc (1, 30);
+    char args[30];
+    char value[30];
     for (int i = 1; i < argc; i++)
     {
         memset (args, 0, 30);
@@ -178,16 +178,15 @@ void preRunTimeArgsServ (int argc, const char * argv[])
                 continue;
         }
     }
-    free (args);
-    free (value);
+    errno = errno_save;
 }
 
 
 void preRunTimeArgsClnt (int argc, const char * argv[])
 {
     int errno_save = errno;
-    char * args = calloc (1, 30);
-    char * value = calloc (1, 30);
+    char args[30];
+    char value[30];
     for (int i = 1; i < argc; i++)
     {
         memset (args, 0, 30);
@@ -251,8 +250,6 @@ void preRunTimeArgsClnt (int argc, const char * argv[])
                 continue;
         }
     }
-    free (args);
-    free (value);
     errno = errno_save;
 }
 
@@ -260,8 +257,8 @@ void runTimeArgsServ (int argc, const char * argv[])
 {
     int errno_save = errno;
     perr (true, LOG_INFO, "Reading runTime Arguments");
-    char * args = calloc (1, 30);
-    char * value = calloc (1, 30);
+    char args[30];
+    char value[30];
     for (int i = 1; i < argc; i++)
     {
         memset (args, 0, 30);
@@ -445,8 +442,6 @@ void runTimeArgsServ (int argc, const char * argv[])
             exit (-1);
         }
     }
-    free (args);
-    free (value);
     perr (true, LOG_INFO,
           "runTime Arguments Read Done! The current configuration is: BindAddr = %s, "
           "BindPort = %d, "
@@ -483,8 +478,8 @@ void runTimeArgsClnt (int argc, const char * argv[])
 {
     int errno_save = errno;
     perr (true, LOG_INFO, "Reading runTime Arguments");
-    char * args = calloc (1, 30);
-    char * value = calloc (1, 30);
+    char args[30];
+    char value[30];
     for (int i = 1; i < argc; i++)
     {
         memset (args, 0, 30);
@@ -614,8 +609,6 @@ void runTimeArgsClnt (int argc, const char * argv[])
             exit (-1);
         }
     }
-    free (args);
-    free (value);
     perr (true, LOG_INFO,
           "runTime Arguments Read Done! The current configuration is ServAddr = %s, "
           "ServPort = %d, "
@@ -985,12 +978,16 @@ void exitCleanupServ ()
     sql_pool_destroy (sql_pool_accept_raspi);
     thread_pool_destroy (thread_pool_accept_raspi);
     thread_pool_destroy (thread_pool_accept_http);
-    hash_table_destroy (hash_map_http);
-    hash_table_destroy (hash_map_raspi);
+    hash_table_client_destroy (hash_table_http);
+    hash_table_client_destroy (hash_table_raspi);
+    hash_table_info_destroy (hash_table_info_raspi_http);
     if (web_html_buf != NULL)
         munmap (web_html_buf, web_html_size);
-    if (web_html_bg_png_buf != NULL)
-        munmap (web_html_bg_png_buf, web_html_bg_png_size);
+    if (web_html_bg_image_buf != NULL)
+        munmap (web_html_bg_image_buf, web_html_bg_image_size);
+    close (web_html_fd);
+    close (web_html_bg_image_fd);
+    closelog ();
 
 
     mysql_lib (false);
@@ -1016,6 +1013,7 @@ void exitCleanupClnt ()
         if (access (pid_file, F_OK) == 0)
             unlink (pid_file);
     }
+    closelog ();
     fflush (NULL);
     exit (0);
 }

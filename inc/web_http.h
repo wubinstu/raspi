@@ -42,14 +42,15 @@
 #define HTTP_RES_HEAD_CONTENT_LENGTH        "Content-Length: "
 #define HTTP_RES_HEAD_CONTENT_TYPE          "Content-Type: "
 
-extern http_request_t * http_request_get (const char * buffer);
+extern http_request_t * http_request_get (const char * buffer, http_request_t * request);
 
 extern void http_request_print (http_request_t * request);
 
 extern void http_request_free (http_request_t * request);
 
 extern http_response_t *
-http_response_generate (enum http_version_t ver, enum http_status_t status, enum http_connection_t connection);
+http_response_generate (http_response_t * response, enum http_version_t ver, enum http_status_t status,
+                        enum http_connection_t connection);
 
 extern void http_response_add_content (http_response_t * response, const char * buffer, int length,
                                        enum http_content_type_t content_type);

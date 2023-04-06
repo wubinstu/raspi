@@ -297,50 +297,64 @@ void http_request_print (http_request_t * request)
     if (request == NULL)
         return;
 
-    printf ("%s %s %s\r\n", HTTP_REQ_METHOD[request->method], request->URI, HTTP_VERSION[request->version]);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_HOST, request->host);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_REFERER, request->referer);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_UA, request->userAgent);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_CONNECTION, HTTP_HEAD_CONNECTS[request->connection]);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT, request->accept);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_LANGUAGE, request->acceptLanguage);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_CHARSET, request->acceptCharset);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_ENCODING, request->acceptEncoding);
-    printf ("%s%d\r\n", HTTP_REQ_HEAD_CONTENT_LENGTH, request->contentLength);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_CONTENT_TYPE, request->contentType);
-    printf ("%s%s\r\n", HTTP_REQ_HEAD_COOKIE, request->cookie);
+    printf ("\r\n%s %s %s\r\n", HTTP_REQ_METHOD[request->method], request->URI, HTTP_VERSION[request->version]);
+    if (request->host[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_HOST, request->host);
+    if (request->referer[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_REFERER, request->referer);
+    if (request->userAgent[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_UA, request->userAgent);
+    if (request->connection != connection_unknown)
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_CONNECTION, HTTP_HEAD_CONNECTS[request->connection]);
+    if (request->accept[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT, request->accept);
+    if (request->acceptLanguage[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_LANGUAGE, request->acceptLanguage);
+    if (request->acceptCharset[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_CHARSET, request->acceptCharset);
+    if (request->acceptEncoding[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_ACCEPT_ENCODING, request->acceptEncoding);
+    if (request->contentLength != '\0')
+        printf ("%s%d\r\n", HTTP_REQ_HEAD_CONTENT_LENGTH, request->contentLength);
+    if (request->contentType[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_CONTENT_TYPE, request->contentType);
+    if (request->cookie[0] != '\0')
+        printf ("%s%s\r\n", HTTP_REQ_HEAD_COOKIE, request->cookie);
     if (request->contentLength > 0 && request->body != NULL)
         printf ("\r\n%s", request->body);
+    printf ("\r\n");
 }
 
-http_request_t * http_request_get (const char * buffer)
+http_request_t * http_request_get (const char * buffer, http_request_t * request)
 {
     if (buffer == NULL)
         return NULL;
 
-    http_request_t * req = calloc (1, sizeof (http_request_t));
-    if (req == NULL)
-        return NULL;
+    if (request == NULL)
+        request = calloc (1, sizeof (http_request_t));
 
     char * location = (char *) buffer;
 
-    http_request_line (req, & location);
-    http_request_header (req, & location);
-    http_request_body (req, & location);
+    http_request_line (request, & location);
+    http_request_header (request, & location);
+//    http_request_body (request, & location);
 
-    return req;
+    return request;
 }
 
 http_response_t *
-http_response_generate (enum http_version_t ver, enum http_status_t status, enum http_connection_t connection)
+http_response_generate (http_response_t * response, enum http_version_t ver, enum http_status_t status,
+                        enum http_connection_t connection)
 {
-    http_response_t * response = (http_response_t *) calloc (1, sizeof (http_response_t));
+
     if (response == NULL)
-        return NULL;
+        response = (http_response_t *) calloc (1, sizeof (http_response_t));
 
     response->version = ver;
     response->status = status;
     response->connection = connection;
+    response->contentLength = 0;
+    response->body = NULL;
     memcpy (response->server, PROJECT_SERVER_NAME, sizeof (PROJECT_SERVER_NAME));
     time_t now = time (NULL);
     struct tm tp;
@@ -355,10 +369,11 @@ void http_response_add_content (http_response_t * response, const char * buffer,
     if (response == NULL || buffer == NULL || length <= 0)
         return;
 
-    response->body = calloc (1, length);
-    if (response->body == NULL)
-        return;
-    memcpy (response->body, buffer, length);
+//    response->body = calloc (1, length);
+//    if (response->body == NULL)
+//        return;
+//    memcpy (response->body, buffer, length);
+    response->body = (char *) buffer;
     response->contentLength = length;
     response->contentType = content_type;
 }

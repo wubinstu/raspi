@@ -54,35 +54,32 @@ int main ()
 //    char * buf = calloc (10, 1024 * 1024);
 
 //    web_html_fd = readOpen (WEB_HTML_PAGE);
-//    web_html_bg_png_fd = readOpen (WEB_HTML_BG);
+//    web_html_bg_image_fd = readOpen (WEB_HTML_BG);
 //    web_html_size = fileSize (WEB_HTML_PAGE);
-//    web_html_bg_png_size = fileSize (WEB_HTML_BG);
+//    web_html_bg_image_size = fileSize (WEB_HTML_BG);
 //
 //    web_html_buf = mmap (NULL, web_html_size, PROT_READ, MAP_PRIVATE, web_html_fd, 0);
-//    web_html_bg_png_buf = mmap (NULL, web_html_bg_png_size, PROT_READ, MAP_PRIVATE, web_html_bg_png_fd, 0);
+//    web_html_bg_image_buf = mmap (NULL, web_html_bg_image_size, PROT_READ, MAP_PRIVATE, web_html_bg_image_fd, 0);
 //    http_response_t * res = http_response_generate (HTTP_11, HTTP_200, keepalive);
-//    http_response_add_content (res, web_html_bg_png_buf, (int) web_html_bg_png_size, image_jpeg);
+//    http_response_add_content (res, web_html_bg_image_buf, (int) web_html_bg_image_size, image_jpeg);
 //    http_response_tostring (res, buf);
+
+    hash_table_info_raspi_http = hash_table_info_init (HASH_TABLE_SIZE);
+    hash_node_sql_data_t abc;
+    abc.socket_fd = 13;
+    abc.next = NULL;
+    struct timespec t;
+    clock_gettime (CLOCK_REALTIME, & t);
+    t.tv_sec += 5;
+    hash_table_info_update (hash_table_info_raspi_http, & abc, t);
+    abc.socket_fd = 14;
+    hash_table_info_update (hash_table_info_raspi_http, & abc, t);
+    hash_table_info_update (hash_table_info_raspi_http, & abc, t);
+
+    hash_table_info_delete (hash_table_info_raspi_http, 13);
+    hash_table_info_delete (hash_table_info_raspi_http, 14);
+    hash_table_info_delete (hash_table_info_raspi_http, 14);
 
 
     return 0;
 }
-
-
-//    else if (strcmp(path,"/get_data") == 0)
-//    {
-//        struct linklist * p = list;
-//        char response[MAXLINE] = "";
-//        // 将链表内容构造为HTTP响应报文的报文体
-//        while (p != NULL)
-//        {
-//            char buf[MAXLINE];
-//            sprintf(buf,"<p>%d</p>", p->data);
-//            strcat(response, buf);
-//            p = p->next;
-//        }
-//        // 发送HTTP响应头部和报文体
-//        sprintf(buf,"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %ld\r\n\r\n%s",
-//        strlen(response), response);
-//        write(connfd, buf, strlen (buf));
-//    }

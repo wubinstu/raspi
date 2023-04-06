@@ -2,100 +2,109 @@
 <html lang="zh">
 <head>
     <title>Project Rain</title>
-
     <style>
-        /* 设置页面背景 */
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
         body {
-            position: relative;
-            background-color: #ffb3ba;
-            background-image: url('door.jpg');
-            background-size: cover;
-            background-blur: 10px;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
+            background-color: #f1f1f1;
+        }
+
+        h1 {
+            font-size: 40px;
         }
 
         .container {
-            position: relative;
-            max-width: 800px;
-            margin: 0 auto;
             padding: 20px;
-            backdrop-filter: blur(10px) brightness(90%);
+            margin: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            overflow-x: auto;
         }
 
-        /* 隐藏列表的边框线 */
+        .list_controller {
+            background-color: #4CAF50;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .list_controller:hover {
+            background-color: #3e8e41;
+        }
+
+        .list_controller:active {
+            background-color: #1e461e;
+        }
+
+        .list_controller:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+
         .list {
-            list-style: none;
-            margin: 0;
+            list-style-type: none;
             padding: 0;
         }
 
-        /* 设置列表项样式 */
-        .list li {
-            margin: 10px;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            background-color: rgba(255, 255, 255, 0.5);
-            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            opacity: 0;
-            animation: fadeIn 1s ease forwards;
-        }
-
-        .list li:last-child {
-            border-bottom: none;
-        }
-
-        .list li .raspi {
+        .raspi {
             font-weight: bold;
-            margin-right: 10px;
+            color: #4CAF50;
         }
 
-
-        /* 设置列表项的特效 */
-        .list li:nth-child(odd) {
-            transform: translateX(-50px);
-            animation: slideInLeft 1s ease forwards;
+        .list li {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #f2f2f2;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
         }
 
-        .list li:nth-child(even) {
-            transform: translateX(50px);
-            animation: slideInRight 1s ease forwards;
-        }
-        
-        /* 动画效果 */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
+        @keyframes backgroundEffect {
+            0% {
+                background-color: #ECECEC;
             }
-            to {
-                opacity: 1;
+            25% {
+                background-color: #F8F8F8;
             }
-        }
-
-        @keyframes slideInLeft {
-            from {
-                transform: translateX(-50px);
-                opacity: 0;
+            50% {
+                background-color: #ECECEC;
             }
-            to {
-                transform: translateX(0);
-                opacity: 1;
+            75% {
+                background-color: #F8F8F8;
+            }
+            100% {
+                background-color: #ECECEC;
             }
         }
 
-        @keyframes slideInRight {
-            from {
-                transform: translateX(50px);
-                opacity: 0;
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100%;
             }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        }
+
+        .timeStamp {
+            color: #2cf1b4;
+        }
+
+        .clientID {
+            color: #35bcf1
+        }
+
+        .clientData {
+            color: #000000;
         }
     </style>
 </head>
@@ -118,6 +127,9 @@
         <!--清屏-->
         <button type="button" class="list_controller" id="clearScreen" onclick="clearScreen()">
             ClearScreen
+        </button>
+        <button type="button" class="list_controller" id="list_status" disabled>
+            currentStatus
         </button>
     </div>
 
@@ -154,10 +166,13 @@
                 item = document.createElement("li");
                 list.appendChild(item);
             }
-            item.innerHTML = "<span class=\"raspi\">[ " + data[i].timeStamp + " ] ID: "
-                + data[i].clientID + ", cpuTemp: " + data[i].cpuTemp + ", distance: "
-                + data[i].distance + ", encTemp: " + data[i].envTemp + ", envHumi: "
-                + data[i].envHumi + "</span>";
+            item.innerHTML = "<span class=\"raspi\">[ <span class=\"timeStamp\">"
+                + data[i].timeStamp + "</span> ] ID: <span class=\"clientID\">"
+                + data[i].clientID + "</span>, cpuTemp: <span class=\"clientData\">"
+                + data[i].cpuTemp + "C</span>, distance: <span class=\"clientData\">"
+                + data[i].distance + "cm</span>, envTemp: <span class=\"clientData\">"
+                + data[i].envTemp + "C</span>, envHumi: <span class=\"clientData\">"
+                + data[i].envHumi + "%</span></span>";
         }
         if (list.children.length <= 1)
             list.children[0].innerHTML = "<span class=\"raspi\">There Is No Client Connection</span>";
@@ -168,28 +183,36 @@
     xhr.onreadystatechange = function () {
         if (this.readyState === 4 && this.status === 200) {
             const data = JSON.parse(this.responseText);
-            if (Array.isArray(data) && data.every(item => item instanceof ClientData))
-                updateList(data);
-            else console.log("Unknown JSON formation: " + this.responseText);
+            // if (Array.isArray(data) && data.every(item => item instanceof ClientData))
+            updateList(data);
+            // else console.log("Unknown JSON formation: " + this.responseText);
         }
     };
 
     let auto_update_date = setInterval(queryData, 10000);
 
     function enableAutoUpdate() {
+        let s = document.getElementById("list_status");
+        s.innerHTML = "currentStatus: autoUpdate";
         auto_update_date = setInterval(queryData, 10000);
     }
 
     function disableAutoUpdate() {
+        let s = document.getElementById("list_status");
+        s.innerHTML = "currentStatus: manualUpdate";
         clearInterval(auto_update_date);
     }
 
     function fetchOnce() {
+        let s = document.getElementById("list_status");
+        s.innerHTML = "currentStatus: manualUpdate";
         clearInterval(auto_update_date);
         queryData();
     }
 
     function clearScreen() {
+        let s = document.getElementById("list_status");
+        s.innerHTML = "currentStatus: disabled";
         updateList([]);
     }
 

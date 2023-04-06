@@ -12,6 +12,7 @@
 #include "thread_pool.h"
 #include "sql_pool.h"
 #include "self_sql.h"
+#include "self_thread.h"
 #include "filed.h"
 #include "web_http.h"
 
@@ -160,11 +161,12 @@ void * raspiEventPoll (void * args)
                 event_server_raspi[i].events & EPOLLERR ||
                 event_server_raspi[i].events & EPOLLHUP)
             {
-                client_hash_node = hash_table_get (hash_map_raspi, event_server_raspi[i].data.fd);
+                client_hash_node = hash_table_client_get (hash_table_raspi, event_server_raspi[i].data.fd);
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_raspi[i].data.fd, NULL);
 
                 if (client_hash_node != NULL)
                 {
+                    lock_robust_mutex (& client_hash_node->clientInfo.onProcess);
                     perr (true, LOG_INFO, "Raspi Client Disconnect! Delete: client[%d] form %s:%d",
                           client_hash_node->clientInfo.fd,
                           inet_ntoa (client_hash_node->clientInfo.addr.sin_addr),
@@ -177,7 +179,9 @@ void * raspiEventPoll (void * args)
                         SSL_free (client_hash_node->clientInfo.ssl_fd);
                     }
                     close (client_hash_node->clientInfo.fd);
-                    hash_table_del (hash_map_raspi, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
+                    pthread_mutex_destroy (& client_hash_node->clientInfo.onProcess);
+                    hash_table_info_delete (hash_table_info_raspi_http, client_hash_node->clientInfo.fd);
+                    hash_table_client_del (hash_table_raspi, client_hash_node->clientInfo.fd);
                 }
                 continue;
             }
@@ -213,14 +217,15 @@ void * raspiEventPoll (void * args)
                 client_hash_node->clientInfo.addr = client_addr;
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
                 client_hash_node->clientInfo.sql = NULL;  // sql_pool_conn_fetch (sql_pool_accept_raspi);
+                create_default_mutex (& client_hash_node->clientInfo.onProcess);
                 memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
-                hash_table_add (hash_map_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
+                hash_table_client_add (hash_table_raspi, (int) client_hash_node->hash_node_key, client_hash_node);
 
             }
                 // 其他套接字事件, 一般是客户端套接字
             else
             {
-                client_hash_node = hash_table_get (hash_map_raspi, event_server_raspi[i].data.fd);
+                client_hash_node = hash_table_client_get (hash_table_raspi, event_server_raspi[i].data.fd);
                 memset (& task, 0, sizeof (task));
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
@@ -229,6 +234,7 @@ void * raspiEventPoll (void * args)
                 task.args = (void *) & client_hash_node->clientInfo.fd;
                 task.func = processRaspiClient;
                 thread_pool_add_task (thread_pool_accept_raspi, & task);
+//                task.func (task.args);
             }
         }
     }
@@ -250,7 +256,9 @@ void * processRaspiClient (void * args)
     int client_fd = * (int *) args;
     int read_len;
     uuid_t id_zero = {0};
-    hash_node_client_t * task_client = hash_table_get (hash_map_raspi, client_fd);
+    hash_node_client_t * task_client = hash_table_client_get (hash_table_raspi, client_fd);
+    if (pthread_mutex_trylock (& task_client->clientInfo.onProcess) != 0)
+        return NULL;
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_raspi.sslEnable && !task_client->clientInfo.sslEnable)
@@ -265,6 +273,7 @@ void * processRaspiClient (void * args)
         if (ssl_rtn == SSL_ERROR_WANT_READ || ssl_rtn == SSL_ERROR_WANT_WRITE)
         {
             task_client->clientInfo.sslEnable = false;
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return NULL;
         }
 
@@ -276,22 +285,24 @@ void * processRaspiClient (void * args)
                   task_client->clientInfo.fd,
                   inet_ntoa (task_client->clientInfo.addr.sin_addr),
                   ntohs (task_client->clientInfo.addr.sin_port));
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+            return NULL;
         } else
         {
-            perr (true, LOG_INFO,
+            perr (true, LOG_NOTICE,
                   "raspiEventPoll: SSL_accept failed: client[%d] form %s:%d",
                   task_client->clientInfo.fd,
                   inet_ntoa (task_client->clientInfo.addr.sin_addr),
                   ntohs (task_client->clientInfo.addr.sin_port));
-            ERR_print_errors_fp (stdout);
+//            ERR_print_errors_fp (stdout);
 //            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
-//            hash_table_del (hash_map_raspi, task_client->clientInfo.fd, task_client->clientInfo.fd);
+//            hash_table_client_del (hash_table_raspi, task_client->clientInfo.fd, task_client->clientInfo.fd);
 
             // 服务器关闭套接字, 触发HUP事件
             close (task_client->clientInfo.fd);
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return (void *) -1;
         }
-        return NULL;
     }
 
     // 客户端 UUID 同步消息
@@ -300,6 +311,7 @@ void * processRaspiClient (void * args)
 
         negotiateUUID (& task_client->clientInfo);
         memcpy (task_client->clientInfo.id, task_client->clientInfo.id, sizeof (uuid_t));
+        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
         return NULL;
     }
 
@@ -337,10 +349,25 @@ void * processRaspiClient (void * args)
 //        while(task_client->clientInfo.sql != NULL)
         task_client->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
         if (task_client->clientInfo.sql == NULL)
+        {
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return (void *) -1;
+        }
         mysql_insert_values (task_client->clientInfo.sql->connection, SQL_TABLE_RASPI, insert_filed, insert_values);
         sql_pool_conn_release (sql_pool_accept_raspi, & task_client->clientInfo.sql);
+
+        hash_node_sql_data_t real_time_data;
+        real_time_data.next = NULL;
+        real_time_data.socket_fd = task_client->clientInfo.fd;
+        sprintf (real_time_data.time_stamp, "%s %s", date, time);
+        real_time_data.monitData = * (RaspiMonitData *) task_client->clientInfo.buf;
+        sprintf (real_time_data.uuid, "%s", uuid_string);
+        struct timespec wait;
+        clock_gettime (CLOCK_REALTIME, & wait);
+        wait.tv_sec += 5;
+        hash_table_info_update (hash_table_info_raspi_http, & real_time_data, wait);
     }
+    pthread_mutex_unlock (& task_client->clientInfo.onProcess);
     return NULL;
 }
 
@@ -372,11 +399,12 @@ void * httpEventPoll (void * args)
                 event_server_http[i].events & EPOLLERR ||
                 event_server_http[i].events & EPOLLHUP)
             {
-                client_hash_node = hash_table_get (hash_map_http, event_server_http[i].data.fd);
+                client_hash_node = hash_table_client_get (hash_table_http, event_server_http[i].data.fd);
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_DEL, event_server_http[i].data.fd, NULL);
 
                 if (client_hash_node != NULL)
                 {
+                    lock_robust_mutex (& client_hash_node->clientInfo.onProcess);
                     perr (true, LOG_INFO, "HTTP Client Disconnect! Delete: client[%d] form %s:%d",
                           client_hash_node->clientInfo.fd,
                           inet_ntoa (client_hash_node->clientInfo.addr.sin_addr),
@@ -387,7 +415,8 @@ void * httpEventPoll (void * args)
                         SSL_free (client_hash_node->clientInfo.ssl_fd);
                     }
                     close (client_hash_node->clientInfo.fd);
-                    hash_table_del (hash_map_http, client_hash_node->clientInfo.fd, client_hash_node->clientInfo.fd);
+                    pthread_mutex_destroy (& client_hash_node->clientInfo.onProcess);
+                    hash_table_client_del (hash_table_http, client_hash_node->clientInfo.fd);
                 }
                 continue;
             }
@@ -423,22 +452,23 @@ void * httpEventPoll (void * args)
                 client_hash_node->clientInfo.addr = client_addr;
                 client_hash_node->clientInfo.addr_len = (int) client_addr_size;
                 client_hash_node->clientInfo.sql = NULL;
+                create_default_mutex (& client_hash_node->clientInfo.onProcess);
                 memset (client_hash_node->clientInfo.id, 0, sizeof (uuid_t));
-                hash_table_add (hash_map_http, (int) client_hash_node->hash_node_key, client_hash_node);
+                hash_table_client_add (hash_table_http, (int) client_hash_node->hash_node_key, client_hash_node);
 
             }
                 // 其他套接字事件, 一般是客户端套接字
             else
             {
-                client_hash_node = hash_table_get (hash_map_http, event_server_http[i].data.fd);
+                client_hash_node = hash_table_client_get (hash_table_http, event_server_http[i].data.fd);
                 memset (& task, 0, sizeof (task));
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
 
                 task.args = (void *) & client_hash_node->clientInfo.fd;
                 task.func = processHttpClient;
-//                thread_pool_add_task (thread_pool_accept_http, & task);
-                task.func (task.args);
+                thread_pool_add_task (thread_pool_accept_http, & task);
+//                task.func (task.args);
             }
         }
     }
@@ -449,21 +479,26 @@ void * processHttpClient (void * args)
 {
     int client_fd = * (int *) args;
     int read_len;
-    hash_node_client_t * task_client = hash_table_get (hash_map_http, client_fd);
+    hash_node_client_t * task_client = hash_table_client_get (hash_table_http, client_fd);
+    if (task_client == NULL)return NULL;
+    if (pthread_mutex_trylock (& task_client->clientInfo.onProcess) != 0)
+        return NULL;
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_http.sslEnable && !task_client->clientInfo.sslEnable)
     {
         if (task_client->clientInfo.ssl_fd == NULL)
-            task_client->clientInfo.ssl_fd = SSL_new (server_accept_http.ssl_ctx);
-
-        SSL_set_fd (task_client->clientInfo.ssl_fd, task_client->clientInfo.fd);
+//            task_client->clientInfo.ssl_fd = SSL_new (server_accept_http.ssl_ctx);
+//
+//        SSL_set_fd (task_client->clientInfo.ssl_fd, task_client->clientInfo.fd);
+            task_client->clientInfo.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, task_client->clientInfo.fd);
 
         int ssl_accept_rtn = SSL_accept (task_client->clientInfo.ssl_fd);
         int ssl_rtn = SSL_get_error (task_client->clientInfo.ssl_fd, ssl_accept_rtn);
         if (ssl_rtn == SSL_ERROR_WANT_READ || ssl_rtn == SSL_ERROR_WANT_WRITE)
         {
             task_client->clientInfo.sslEnable = false;
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return NULL;
         }
 
@@ -475,18 +510,22 @@ void * processHttpClient (void * args)
                   task_client->clientInfo.fd,
                   inet_ntoa (task_client->clientInfo.addr.sin_addr),
                   ntohs (task_client->clientInfo.addr.sin_port));
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return NULL;
         } else
         {
-            perr (true, LOG_INFO,
+            perr (true, LOG_NOTICE,
                   "httpEventPoll: SSL_accept failed: client[%d] form %s:%d",
                   task_client->clientInfo.fd,
                   inet_ntoa (task_client->clientInfo.addr.sin_addr),
                   ntohs (task_client->clientInfo.addr.sin_port));
-            ERR_print_errors_fp (stdout);
-            epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
-            hash_table_del (hash_map_http, task_client->clientInfo.fd, task_client->clientInfo.fd);
+//            ERR_print_errors_fp (stdout);
+//            epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
+//            hash_table_client_del (hash_table_http, task_client->clientInfo.fd, task_client->clientInfo.fd);
+
+            // 手动触发 epoll 函数的 HUP 事件
             close (task_client->clientInfo.fd);
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return (void *) -1;
         }
     }
@@ -494,48 +533,130 @@ void * processHttpClient (void * args)
 
     memset (task_client->clientInfo.buf, 0, BUFSIZ);
     read_len = readClient (task_client->clientInfo, task_client->clientInfo.buf, BUFSIZ);
-    if (read_len <= 0)return (void *) -1;
-
-    http_request_t * req = http_request_get (task_client->clientInfo.buf);
-    http_request_print (req);
-
-
-    http_response_t * res = http_response_generate (req->version, HTTP_200, keepalive);
-    char * buf = calloc (3, 1024 * 1024);
-    // 初始请求
-    if (strlen (req->URI) == 1)
+    if (read_len <= 0)
     {
-        http_response_add_content (res, web_html_buf, (int) web_html_size, text_html);
-        http_response_tostring (res, buf);
-        writeClient (task_client->clientInfo, buf, (int) strlen (buf));
-    } else if (igStrCmp (req->URI, "/door.jpg", (int) strlen (req->URI)) == 0)
-    {
-        http_response_add_content (res, web_html_bg_png_buf, (int) web_html_bg_png_size, image_jpeg);
-        char * end = http_response_tostring (res, buf);
-        writeClient (task_client->clientInfo, buf, (int) (end - buf));
-
-
-//        res->contentLength = (int) web_html_bg_png_size;
-//        res->contentType = image_jpeg;
-//        http_response_tostring (res, buf);
-//        writeClient (task_client->clientInfo, buf, (int) strlen (buf));
-//        writeClient (task_client->clientInfo, "\r\n", 2);
-//        writeClient (task_client->clientInfo, web_html_bg_png_buf, (int) web_html_bg_png_size);
-    } else if (igStrCmp (req->URI, "/fetch_all_data", (int) strlen (req->URI)) == 0)
-    {
-//        char buf_json[] = "{\"data\": [{\"label\": \"Temperature\", \"value\": \"25C\"}, {\"label\": \"Humidity\", \"value\": \"60%\"}]}";
-        char buf_json[] = "[{ \"timeStamp\": \"20:07\", \"clientID\": \"abc\", \"cpuTemp\": \"51.2C\", \"distance\": \"123.45\", \"envTemp\": \"23.12\", \"envHumi\": \"34%\"}, "
-                          "{ \"timeStamp\": \"12:07\", \"clientID\": \"efg\", \"cpuTemp\": \"44.5C\", \"distance\": \"654.12\", \"envTemp\": \"12.45\", \"envHumi\": \"78%\"}]";
-        http_response_add_content (res, buf_json, (int) strlen (buf_json), application_json);
-        char * end = http_response_tostring (res, buf);
-        writeClient (task_client->clientInfo, buf, (int) (end - buf));
+        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+        return (void *) -1;
     }
 
+    http_request_t req;
+    http_request_get (task_client->clientInfo.buf, & req);
+    http_request_print (& req);
 
-    http_response_free (res);
-    http_request_free (req);
-    free (buf);
 
 
-    return NULL;
+    // 初始请求
+    if (strlen (req.URI) == 1 && req.URI[0] == '/')
+    {
+        http_response_t res;
+        http_response_generate (& res, req.version, HTTP_200, keepalive);
+        char buf_http[web_html_size + 200];
+//        http_response_add_content (& res, web_html_buf, (int) web_html_size, text_html);
+        res.contentType = text_html;
+        res.contentLength = (int) web_html_size;
+        http_response_tostring (& res, buf_http);
+        writeClient (task_client->clientInfo, buf_http, (int) strlen (buf_http));
+        writeClient (task_client->clientInfo, "\r\n", 2);
+        writeClient (task_client->clientInfo, web_html_buf, (int) web_html_size);
+        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+        return NULL;
+    } else if (igStrCmp (req.URI, "/fetch_all_data", (int) strlen (req.URI)) == 0)
+    {
+        http_response_t res;
+        http_response_generate (& res, req.version, HTTP_200, keepalive);
+        struct timespec wait;
+        clock_gettime (CLOCK_REALTIME, & wait);
+        wait.tv_sec += 6;
+        if (pthread_rwlock_timedwrlock (& hash_table_info_raspi_http->lock, & wait) != 0)
+        {
+            res.status = HTTP_204;
+            char buf_http[200];
+            char * end = http_response_tostring (& res, buf_http);
+            writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+            return NULL;
+        }
+
+        int client_num = hash_table_info_raspi_http->current;
+        int alloc_size;
+        if (client_num == 0)
+            alloc_size = 2;
+        else
+            alloc_size = 1/*JSON数组左括号*/ +
+                         ((client_num - 1) * 140)/*N-1 个 js 对象(JSON字符串,附带逗号)*/ +
+                         139/*最后一个js对象*/ + 1/*JSON数组右括号*/ + 8 * client_num /*安全缓冲区*/;
+        char * buf_http = calloc (1, alloc_size + 200);
+        char * buf_json = (char *) calloc (1, alloc_size);
+        char * pointer = buf_json;
+        if (buf_json == NULL || buf_http == NULL)
+        {
+            res.status = HTTP_204;
+            char buf_http_back[200];
+            char * end = http_response_tostring (& res, buf_http_back);
+            writeClient (task_client->clientInfo, buf_http_back, (int) (end - buf_http_back));
+            if (buf_http != NULL)
+                free (buf_http);
+            if (buf_json != NULL)
+                free (buf_json);
+            pthread_rwlock_unlock (& hash_table_info_raspi_http->lock);
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+            return NULL;
+        }
+
+        sprintf (buf_json, "[");
+        pointer++;
+        hash_node_sql_data_t * data;
+        for (int i = 0, count = hash_table_info_raspi_http->current;
+             i < hash_table_info_raspi_http->size; i++)
+        {
+            if (hash_table_info_raspi_http->hashTable[i] == NULL)
+                continue;
+
+            if (count == 0)break;
+
+            data = hash_table_info_raspi_http->hashTable[i];
+            while (data != NULL && count != 0)
+            {
+                pointer += sprintf (pointer,
+                                    "{\"timeStamp\":\"%s\","
+                                    "\"clientID\":\"%s\","
+                                    "\"cpuTemp\":\"%.0f\",\"distance\":\"%.0f\","
+                                    "\"envTemp\":\"%.0f\",\"envHumi\":\"%.0f\"},",
+                                    data->time_stamp, data->uuid, data->monitData.cpu_temper,
+                                    data->monitData.distance, data->monitData.env_temper,
+                                    data->monitData.env_humidity);
+
+                count--;
+                data = data->next;
+            }
+        }
+        if (* (pointer - 1) == ',')
+            * (--pointer) = ']';
+        else * pointer = ']';
+
+        pthread_rwlock_unlock (& hash_table_info_raspi_http->lock);
+
+
+//        http_response_add_content (& res, buf_json, (int) strlen (buf_json), application_json);
+        res.contentLength = (int) strlen (buf_json);
+        res.contentType = application_json;
+        char * end = http_response_tostring (& res, buf_http);
+        writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
+        writeClient (task_client->clientInfo, "\r\n", 2);
+        writeClient (task_client->clientInfo, buf_json, (int) strlen (buf_json));
+        free (buf_json);
+        free (buf_http);
+        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+        return NULL;
+    } else
+    {
+        char buf_http[200];
+        http_response_t res;
+        http_response_generate (& res, req.version, HTTP_404, closed);
+        http_response_add_content (& res, "<h1>404 Not Found</h1>", 22, text_html);
+        char * end = http_response_tostring (& res, buf_http);
+        writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
+        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+        return NULL;
+    }
 }

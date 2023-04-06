@@ -209,20 +209,156 @@ int ListToArry (PLinkNode L, KeyValuePair e[])
 }
 
 
-hash_table_t * hash_table_init (int size)
+hash_table_client_t * hash_table_client_init (int size)
 {
-    hash_table_t * table = (hash_table_t *) calloc (1, sizeof (hash_table_t));
+    hash_table_client_t * table = (hash_table_client_t *) calloc (1, sizeof (hash_table_client_t));
     if (table == NULL)return table;
     table->size = size;
     table->current = 0;
+    if (pthread_rwlock_init (& table->lock, NULL) != 0)
+    {
+        free (table);
+        return NULL;
+    }
     table->hashTable = (hash_node_client_t **) calloc (size, sizeof (hash_node_client_t *));
     return table;
 }
 
-void hash_table_destroy (hash_table_t * table)
+void hash_table_client_destroy (hash_table_client_t * table)
 {
     if (table == NULL)return;
+    pthread_rwlock_wrlock (& table->lock);
     hash_node_client_t * node, * free_node;
+    if (table->current > 0 && table->hashTable != NULL)
+    {
+        for (unsigned int i = 0; i < table->size; i++)
+        {
+            if (table->hashTable[i] != NULL)
+            {
+                node = table->hashTable[i];
+                while (node != NULL)
+                {
+                    free_node = node;
+                    node = node->next;
+                    free (free_node);
+                    table->current--;
+                }
+                table->hashTable[i] = NULL;
+            }
+        }
+        free (table->hashTable);
+    }
+    table->size = -1;
+    pthread_rwlock_destroy (& table->lock);
+    free (table);
+}
+
+hash_node_client_t * hash_table_client_get (hash_table_client_t * table, int hash_index)
+{
+    if (table == NULL || table->size <= 0 || table->current <= 0 || table->hashTable == NULL || hash_index < 0)
+        return NULL;
+
+    pthread_rwlock_rdlock (& table->lock);
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
+    while (node != NULL)
+    {
+        if (node->hash_node_key == hash_index)
+        {
+            pthread_rwlock_unlock (& table->lock);
+            return node;
+        }
+        node = node->next;
+    }
+    pthread_rwlock_unlock (& table->lock);
+    return NULL;
+}
+
+void hash_table_client_add (hash_table_client_t * table, int hash_index, hash_node_client_t * new_node)
+{
+    if (table == NULL || table->size <= 0 || table->current >= table->size || table->hashTable == NULL ||
+        new_node == NULL)
+        return;
+
+    pthread_rwlock_wrlock (& table->lock);
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
+    if (node == NULL)
+        table->hashTable[hash_index % table->size] = new_node;
+    else
+    {
+        while (node->next != NULL)
+            node = node->next;
+
+        node->next = new_node;
+        new_node->next = NULL;
+    }
+    table->current++;
+    pthread_rwlock_unlock (& table->lock);
+}
+
+void hash_table_client_del (hash_table_client_t * table, int hash_index)
+{
+    if (table == NULL || table->size <= 0 || table->current <= 0 || table->hashTable == NULL)
+        return;
+
+    pthread_rwlock_wrlock (& table->lock);
+    hash_node_client_t * free_node;
+    hash_node_client_t * node = table->hashTable[hash_index % table->size];
+
+    if (node != NULL)
+        if (node->hash_node_key == hash_index)
+        {
+            table->hashTable[hash_index % table->size] = node->next;
+            free (node);
+            table->current--;
+            pthread_rwlock_unlock (& table->lock);
+            return;
+        }
+
+
+    while (node != NULL)
+    {
+        if (node->next != NULL)
+        {
+            if (node->next->hash_node_key == hash_index)
+            {
+                free_node = node->next;
+                node->next = free_node->next;
+                free (free_node);
+                table->current--;
+                pthread_rwlock_unlock (& table->lock);
+                return;
+            }
+        }
+        node = node->next;
+    }
+    pthread_rwlock_unlock (& table->lock);
+}
+
+hash_table_info_t * hash_table_info_init (int size)
+{
+    hash_table_info_t * table = (hash_table_info_t *) calloc (1, sizeof (hash_table_info_t));
+    if (table == NULL)return table;
+    table->size = size;
+    table->current = 0;
+    if (pthread_rwlock_init (& table->lock, NULL) != 0)
+    {
+        free (table);
+        return NULL;
+    }
+    table->hashTable = (hash_node_sql_data_t **) calloc (size, sizeof (hash_node_sql_data_t *));
+    if (table->hashTable == NULL)
+    {
+        free (table);
+        return NULL;
+    }
+    return table;
+}
+
+void hash_table_info_destroy (hash_table_info_t * table)
+{
+    if (table == NULL)return;
+    hash_node_sql_data_t * node, * free_node;
+    pthread_rwlock_wrlock (& table->lock);
     if (table->current > 0)
         for (unsigned int i = 0; i < table->size; i++)
         {
@@ -239,76 +375,98 @@ void hash_table_destroy (hash_table_t * table)
                 table->hashTable[i] = NULL;
             }
         }
+    pthread_rwlock_destroy (& table->lock);
     free (table->hashTable);
     table->size = -1;
     free (table);
 }
 
-hash_node_client_t * hash_table_get (hash_table_t * table, int hash_index)
+bool hash_table_info_update (hash_table_info_t * table, hash_node_sql_data_t * new_data, struct timespec time)
 {
-    if (table == NULL || table->current <= 0 || hash_index < 0)
-        return NULL;
+    if (table == NULL || table->size <= 0 || table->hashTable == NULL || new_data == NULL)
+        return false;
 
-    hash_node_client_t * node = table->hashTable[hash_index % table->size];
-    while (node != NULL)
+    // notice that read lock, not write lock
+    if (pthread_rwlock_timedrdlock (& table->lock, & time) != 0)
+        return false;
+
+    int index = new_data->socket_fd % table->size;
+    hash_node_sql_data_t * data = table->hashTable[index];
+    hash_node_sql_data_t * pointer = data;
+
+    if (data == NULL)
     {
-        if (node->hash_node_key == hash_index)
-            return node;
-        node = node->next;
+        table->hashTable[index] = calloc (1, sizeof (hash_node_sql_data_t));
+        * table->hashTable[index] = * new_data;
+        table->hashTable[index]->next = NULL;
+        table->current++;
+        pthread_rwlock_unlock (& table->lock);
+        return true;
     }
-    return NULL;
-}
 
-void hash_table_add (hash_table_t * table, int hash_index, hash_node_client_t * new_node)
-{
-    if (table == NULL || table->current >= table->size || new_node == NULL)
-        return;
-
-    hash_node_client_t * node = table->hashTable[hash_index % table->size];
-    if (node == NULL)
-        table->hashTable[hash_index % table->size] = new_node;
-    else
+    while (data != NULL)
     {
-        while (node->next != NULL)
-            node = node->next;
-
-        node->next = new_node;
-        new_node->next = NULL;
-    }
-    table->current++;
-}
-
-void hash_table_del (hash_table_t * table, int hash_index, int hash_key)
-{
-    if (table == NULL || table->current <= 0 || hash_index < 0 || hash_key < 0)
-        return;
-
-    hash_node_client_t * free_node;
-    hash_node_client_t * node = table->hashTable[hash_index % table->size];
-
-    if (node != NULL)
-        if (node->hash_node_key == hash_key)
+        if (data->socket_fd == new_data->socket_fd)
         {
-            table->hashTable[hash_index % table->size] = node->next;
-            free (node);
-            table->current--;
-            return;
+            * data = * new_data;
+            pthread_rwlock_unlock (& table->lock);
+            return true;
         }
+        pointer = data;
+        data = data->next;
+    }
 
+    pointer->next = (hash_node_sql_data_t *) calloc (1, sizeof (hash_node_sql_data_t));
+    if (pointer->next == NULL)return false;
+    * pointer->next = * new_data;
+    table->current++;
+    pthread_rwlock_unlock (& table->lock);
+    return true;
+}
 
-    while (node != NULL)
+void hash_table_info_delete (hash_table_info_t * table, int hash_index)
+{
+    if (table == NULL || table->size <= 0 || table->current <= 0 || table->hashTable == NULL || hash_index < 0)
+        return;
+
+    pthread_rwlock_wrlock (& table->lock);
+
+    int index = hash_index % table->size;
+    hash_node_sql_data_t * data = table->hashTable[index];
+    hash_node_sql_data_t * free_node;
+
+    if (data == NULL)
     {
-        if (node->next != NULL)
+        pthread_rwlock_unlock (& table->lock);
+        return;
+    }
+
+    if (data->socket_fd == hash_index)
+    {
+        table->hashTable[index] = data->next;
+        free (data);
+        table->current--;
+        pthread_rwlock_unlock (& table->lock);
+        return;
+    }
+
+    while (data != NULL)
+    {
+
+        if (data->next != NULL)
         {
-            if (node->next->hash_node_key == hash_key)
+            if (data->next->socket_fd == hash_index)
             {
-                free_node = node->next;
-                node->next = free_node->next;
+                free_node = data->next;
+                data->next = free_node->next;
                 free (free_node);
                 table->current--;
+                pthread_rwlock_unlock (& table->lock);
                 return;
             }
         }
-        node = node->next;
+
+        data = data->next;
     }
+    pthread_rwlock_unlock (& table->lock);
 }

@@ -42,6 +42,7 @@ int main (int argc, const char * argv[])
     preRunTimeArgsClnt (argc, argv);
     confToVarClnt ();  // read conf file
     runTimeArgsClnt (argc, argv);  // Check Runtime parameters
+    openlog (PROJECT_CLIENT_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
 
 
     // Check whether you have root privileges
@@ -50,10 +51,10 @@ int main (int argc, const char * argv[])
             return -1;
     // Ensure that only one program runs at the same time according to the PID file
     if (strcmp (config_client.pidFile, "default") == 0)
-        checkPidFileServ (PID_FILE_CLIENT);
+        checkPidFileClnt (PID_FILE_CLIENT);
     else if (strcmp (config_client.pidFile, "disable") == 0)
-        checkPidFileServ (NULL);
-    else checkPidFileServ (config_client.pidFile);
+        checkPidFileClnt (NULL);
+    else checkPidFileClnt (config_client.pidFile);
 
 
     if (config_client.modeDaemon)

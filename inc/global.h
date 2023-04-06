@@ -55,20 +55,20 @@
 //线程任务队列最大值 = (maximumPoolSize - corePoolSize) * 平均执行时间 / 平均等待时间
 #define THREAD_POOL_MAX     20
 #define THREAD_POOL_MIN     5
-#define THREAD_POOL_QUEUE   20
+#define THREAD_POOL_QUEUE   100
 #define SQL_POOL_MAX        20
 #define SQL_POOL_MIN        5
 #define SQL_TABLE_RASPI     "raspi"
 
+#define POOL_MANAGER_SLEEP_TIME         3       // 单位: 秒, 指示管理者线程查看和管理POOL的时间频率
+#define POOL_MANAGER_ADJUST_BY_PER      10      // 单位: 线程数量, 指示管理者线程每次调节的增加/减少的线程数量
+
 // 用来创建客户端结构体哈希表, 大小需要设置为素数
-#define HASH_MAP_SIZE      1999
+#define HASH_TABLE_SIZE    1999
 #define SERVER_EPOLL_SIZE  10000
 #define UUID_CLIENT_FILE    "/tmp/tmpRaspiRainId"
 #define UUID_NONE           "UUID_NONE"
 
-
-#define CRLF                "\r\n"
-#define SPACE               ' '
 
 /** logs levels */
 extern int filed_logLevel;
@@ -93,8 +93,9 @@ extern thread_pool_t * thread_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_http;
 
 /** hash maps (to save clients infos) */
-extern hash_table_t * hash_map_raspi;
-extern hash_table_t * hash_map_http;
+extern hash_table_client_t * hash_table_raspi;
+extern hash_table_client_t * hash_table_http;
+extern hash_table_info_t * hash_table_info_raspi_http;
 
 /** thread id for server epolls */
 extern pthread_t thread_id_server_accept_raspi;
@@ -110,9 +111,9 @@ extern int pid_file_fd;
 extern int web_html_fd;
 extern long web_html_size;
 extern char * web_html_buf;
-extern int web_html_bg_png_fd;
-extern long web_html_bg_png_size;
-extern char * web_html_bg_png_buf;
+extern int web_html_bg_image_fd;
+extern long web_html_bg_image_size;
+extern char * web_html_bg_image_buf;
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;

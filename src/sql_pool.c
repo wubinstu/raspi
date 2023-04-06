@@ -6,6 +6,7 @@
 #include "types.h"
 #include "self_thread.h"
 #include "log.h"
+#include "global.h"
 
 sql_pool_t * sql_pool_init (const char * host, unsigned short port,
                             const char * user, const char * pass, const char * db,
@@ -240,10 +241,10 @@ void * sql_pool_manage (void * args)
 {
     sql_pool_t * pool = (sql_pool_t *) args;
 
-    const unsigned int SQL_CONN_ADJUST = 2;
+    const unsigned int SQL_CONN_ADJUST = POOL_MANAGER_ADJUST_BY_PER;
     while (!pool->shutdown)
     {
-        sleep (3);
+        sleep (POOL_MANAGER_SLEEP_TIME);
         if (pool->conn_cur - pool->conn_busy <= 1)
             sql_pool_conn_add (pool, SQL_CONN_ADJUST);
         else if ((pool->conn_cur - pool->conn_busy) / (double) pool->conn_max > (double) 0.5)

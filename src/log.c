@@ -31,31 +31,31 @@ char * log_prefix (int logLevel)
 
 void perr (bool condition, int logLevel, const char * message, ...)
 {
-    if (condition)
+    if (!condition)
+        return;
+
+    // The space size here is not set strictly
+    char with_prefix[BUF_SIZE + PREFIX_LEN + CACHE_SIZE];
+    strcpy (with_prefix, log_prefix (logLevel));
+    if (errno != 0)
     {
-        // The space size here is not set strictly
-        char * with_prefix = calloc (1, BUF_SIZE + PREFIX_LEN + CACHE_SIZE);
-        strcpy (with_prefix, log_prefix (logLevel));
-        if (errno != 0)
-        {
-            strcat (with_prefix, "(errno) ");
-            strcat (with_prefix, strerror (errno));
-            strcat (with_prefix, ": ");
-            errno = 0;
-        }
-        strcat (with_prefix, message);
-        char * storage_args = calloc (2, BUF_SIZE + CACHE_SIZE);
-        va_list args;
-        va_start(args, message);
-        vsprintf (storage_args, with_prefix, args);
-        va_end(args);
-        openlog (PROJECT_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
-        syslog (logLevel, "%s", storage_args);
-        closelog ();
-        printf ("%s\n", storage_args);
-        free (with_prefix);
-        free (storage_args);
-//        if(logLevel <= LOG_ERR)
-//            exit(logLevel);
+        strcat (with_prefix, "(errno) ");
+        strcat (with_prefix, strerror (errno));
+        strcat (with_prefix, ": ");
+        errno = 0;
     }
+    strcat (with_prefix, message);
+    char storage_args[2 * (BUF_SIZE + CACHE_SIZE)];
+    va_list args;
+    va_start(args, message);
+    vsprintf (storage_args, with_prefix, args);
+    va_end(args);
+//    openlog (PROJECT_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
+
+// syslog 一般来说是线程安全函数
+    syslog (logLevel | LOG_PID, "%s", storage_args);
+//    closelog ();
+// printf 可能造成多线程输出混乱, 这里只是测试使用
+    printf ("%s\n", storage_args);
+
 }
