@@ -98,6 +98,16 @@ const char * HTTP_RES_CONTENT_TYPE[] =
                 "video/mp4",
         };
 
+const char * HTTP_TRANSFER_ENCODING[] =
+        {
+                "encoding_none",
+                "chunked",
+                "compress",
+                "deflate",
+                "gzip",
+                "identity",
+        };
+
 void http_request_line (http_request_t * request, char ** buffer)
 {
     if (request == NULL || buffer == NULL || * buffer == NULL)
@@ -349,9 +359,10 @@ http_response_generate (http_response_t * response, enum http_version_t ver, enu
 
     if (response == NULL)
         response = (http_response_t *) calloc (1, sizeof (http_response_t));
-
+    memset (response, 0, sizeof (http_response_t));
     response->version = ver;
     response->status = status;
+    response->encoding = encoding_none;
     response->connection = connection;
     response->contentLength = 0;
     response->body = NULL;
@@ -410,6 +421,13 @@ char * http_response_tostring (http_response_t * response, char * buffer)
     memset (buf, 0, sizeof (buf));
     sprintf (buf, "%s%s\r\n", HTTP_RES_HEAD_CONNECTION, HTTP_HEAD_CONNECTS[response->connection]);
     strcat (buffer, buf);
+
+    if (response->encoding != encoding_none)
+    {
+        memset (buf, 0, sizeof (buf));
+        sprintf (buf, "%s%s\r\n", HTTP_RES_HEAD_TRANSFER_ENCODING, HTTP_TRANSFER_ENCODING[response->encoding]);
+        strcat (buffer, buf);
+    }
 
     char * loc = buffer + strlen (buffer);
 

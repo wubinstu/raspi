@@ -9,12 +9,9 @@
 
 SSL_CTX * initSSL (bool true_for_server_false_for_client)
 {
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-    SSL_load_error_strings();
     if (true_for_server_false_for_client)
-        return SSL_CTX_new (SSLv23_server_method ());
-    else return SSL_CTX_new (SSLv23_client_method ());
+        return SSL_CTX_new (TLS_server_method ());
+    else return SSL_CTX_new (TLS_client_method ());
 }
 
 void setVerifyPeer (SSL_CTX * sslCtx, bool verifyPeer)

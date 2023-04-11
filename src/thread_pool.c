@@ -33,6 +33,7 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
     {
         perr (true, LOG_WARNING,
               "function calloc(pool->queue) returns NULL when called thread_pool_init");
+        free (pool);
         return NULL;
     }
 
@@ -40,6 +41,7 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
     {
         perr (true, LOG_WARNING,
               "function create_default_mutex returns NULL when called thread_pool_init");
+        free (pool->queue);
         free (pool);
         return NULL;
     }
@@ -47,6 +49,7 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
     {
         perr (true, LOG_WARNING,
               "function pthread_cond_init returns error when called thread_pool_init");
+        free (pool->queue);
         free (pool);
         return NULL;
     }
@@ -54,6 +57,7 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
     {
         perr (true, LOG_WARNING,
               "function pthread_cond_init returns error when called thread_pool_init");
+        free (pool->queue);
         free (pool);
         return NULL;
     }
@@ -63,6 +67,7 @@ thread_pool_t * thread_pool_init (unsigned int thread_max_num, unsigned int thre
     {
         perr (true, LOG_WARNING,
               "function calloc(tids) returns NULL when called thread_pool_init");
+        free (pool->queue);
         free (pool);
         return NULL;
     }
@@ -190,10 +195,10 @@ void * thread_pool_manage (void * args)
     int counter = 0;
     unsigned int queue_cur;
     unsigned int thread_max, thread_min, thread_alive, thread_busy;
-    const int TASK_QUEUE_MAX_WAIT = 10, THREAD_NUM_ADJUST = POOL_MANAGER_ADJUST_BY_PER;
+    const int TASK_QUEUE_MAX_WAIT = 10, THREAD_NUM_ADJUST = THREAD_POOL_MANAGER_ADJUST_BY_PER;
     while (!pool->shutdown)
     {
-        sleep (POOL_MANAGER_SLEEP_TIME);
+        sleep (THREAD_POOL_MANAGER_SLEEP_TIME);
         lock_robust_mutex (& pool->lock);
         shutdown = pool->shutdown;
         thread_max = pool->thread_max;

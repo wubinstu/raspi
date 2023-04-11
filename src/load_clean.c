@@ -13,6 +13,7 @@
 #include "self_sql.h"
 #include "self_thread.h"
 #include "sql_pool.h"
+#include "ssl_pool.h"
 #include "thread_pool.h"
 
 void daemonize (const char * cmd)
@@ -157,7 +158,7 @@ void preRunTimeArgsServ (int argc, const char * argv[])
                     "[--bindaddr] [ip / hostname]\t\t\t\tspecify server bind ip address\n\t"
                     "[--bindport] [port]\t\t\t\t\tspecify server ip bind port\n\t"
                     "[--httpport] [port]\t\t\t\t\tspecify server http port\n\t"
-                    "[--sslmode] [disable,default]\t\t\t\tspecify server ssl mode\n\t"
+                    "[--sslmode] [disable,default]\t\t\t\tspecify server ssl_fd mode\n\t"
                     "[--cafile] [filepath]\t\t\t\t\tspecify ca certificate file path\n\t"
                     "[--servcert] [filepath]\t\t\t\t\tspecify server certificate file path\n\t"
                     "[--servkey] [filepath]\t\t\t\t\tspecify server private key file path\n\t"
@@ -237,7 +238,7 @@ void preRunTimeArgsClnt (int argc, const char * argv[])
                     "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
                     "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
                     "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
-                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
+                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl_fd mode or ca path\n\t"
                     "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
                     "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
                     "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
@@ -592,7 +593,7 @@ void runTimeArgsClnt (int argc, const char * argv[])
 //                    "[--servaddr] [ip / hostname]\t\t\t\tspecify server ip address\n\t"
 //                    "[--servport] [port]\t\t\t\t\tspecify server ip port\n\t"
 //                    "[--interval] [interval]\t\t\t\t\tspecify data collection interval\n\t"
-//                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl mode or ca path\n\t"
+//                    "[--cafile] [disable,default,\"file path\"]\t\tspecify ssl_fd mode or ca path\n\t"
 //                    "[--pidfile] [disable,default,\"file path\"]\t\tspecify pid file path\n\t"
 //                    "[--daemon] [disable,default]\t\t\t\tspecify daemon mode\n\t"
 //                    "[--clean-pid]\t\t\t\t\t\tDelete PID file\n\t"
@@ -955,8 +956,7 @@ void confToVarClnt ()
 void exitCleanupServ ()
 {
     perr (true, LOG_INFO,
-          "Service Will Exit After Cleaning-up (3secs...)");
-    sleep (3);
+          "Service Will Exit After Cleaning-up");
 
 
     char * pid_file;
@@ -973,24 +973,37 @@ void exitCleanupServ ()
         if (access (pid_file, F_OK) == 0)
             unlink (pid_file);
     }
-    fflush (NULL);
-
+    perr (true, LOG_INFO, "Preparing destroy sql pool for raspi...");
     sql_pool_destroy (sql_pool_accept_raspi);
+    perr (true, LOG_INFO, "Preparing destroy thread pool for raspi...");
     thread_pool_destroy (thread_pool_accept_raspi);
+    perr (true, LOG_INFO, "Preparing destroy thread pool for http...");
     thread_pool_destroy (thread_pool_accept_http);
-    hash_table_client_destroy (hash_table_http);
+    perr (true, LOG_INFO, "Preparing destroy ssl pool for raspi...");
+    ssl_pool_destroy (ssl_pool_accept_raspi);
+    perr (true, LOG_INFO, "Preparing destroy ssl pool for http...");
+    ssl_pool_destroy (ssl_pool_accept_http);
+    perr (true, LOG_INFO, "Preparing destroy hash table for raspi client...");
     hash_table_client_destroy (hash_table_raspi);
+    perr (true, LOG_INFO, "Preparing destroy hash table for http client...");
+    hash_table_client_destroy (hash_table_http);
+    perr (true, LOG_INFO, "Preparing destroy hash table for raspi table real time data...");
     hash_table_info_destroy (hash_table_info_raspi_http);
     if (web_html_buf != NULL)
         munmap (web_html_buf, web_html_size);
-    if (web_html_bg_image_buf != NULL)
-        munmap (web_html_bg_image_buf, web_html_bg_image_size);
     close (web_html_fd);
-    close (web_html_bg_image_fd);
     closelog ();
 
+    if (config_server.modeSSL)
+    {
+        EVP_cleanup ();
+        CRYPTO_cleanup_all_ex_data ();
+        ERR_free_strings();
+    }
 
     mysql_lib (false);
+    fflush (NULL);
+    perr (true, LOG_INFO, "Server Exited");
     exit (0);
 }
 
@@ -1012,6 +1025,12 @@ void exitCleanupClnt ()
     {
         if (access (pid_file, F_OK) == 0)
             unlink (pid_file);
+    }
+    if (config_client.sslMode > ssl_disable)
+    {
+        EVP_cleanup ();
+        CRYPTO_cleanup_all_ex_data ();
+        ERR_free_strings();
     }
     closelog ();
     fflush (NULL);

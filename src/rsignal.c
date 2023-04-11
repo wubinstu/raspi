@@ -10,7 +10,18 @@
 
 void sigHandlerServ (int signo, siginfo_t * siginfo, void * context)
 {
+    if (signo == SIGINT || signo == SIGQUIT || signo == SIGABRT)
+        perr (true, LOG_NOTICE,
+              "%s received, Stopping", strsignal (signo)),
+                exitCleanupServ ();
 
+    if (signo == SIGSEGV)  // mem err
+    {
+        psiginfo (siginfo, "Segmentation Fault: ");
+        perr (true, LOG_ERR,
+              "SIGSEGV received, Exiting Immediately without cleaning");
+        _exit (127);
+    }
 }
 
 void sigHandlerClnt (int signo, siginfo_t * siginfo, void * context)
@@ -94,7 +105,35 @@ void sigHandlerClnt (int signo, siginfo_t * siginfo, void * context)
 
 void sigRegisterServ ()
 {
+    // define vars
+    struct sigaction act;
 
+    memset (& act, 0, sizeof (struct sigaction));
+    sigfillset (& act.sa_mask);
+    act.sa_flags = SA_INTERRUPT | SA_SIGINFO;
+    act.sa_sigaction = sigHandlerServ;
+
+    // 各种退出信号, 清理后退出
+    sigaction (SIGINT, & act, NULL);
+    sigaction (SIGQUIT, & act, NULL);
+    sigaction (SIGTERM, & act, NULL);
+    sigaction (SIGABRT, & act, NULL);
+    sigaction (SIGSEGV, & act, NULL);
+
+    sigdelset (& act.sa_mask, SIGINT);
+    sigdelset (& act.sa_mask, SIGQUIT);
+    sigdelset (& act.sa_mask, SIGTERM);
+    sigdelset (& act.sa_mask, SIGABRT);
+    sigdelset (& act.sa_mask, SIGSEGV);
+    sigaction (SIGALRM, & act, NULL);
+    sigaction (SIGHUP, & act, NULL);
+    sigaction (SIGPIPE, & act, NULL);
+
+    act.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigaction (SIGTSTP, & act, NULL);
+    sigaction (SIGTTIN, & act, NULL);
+    sigaction (SIGTTOU, & act, NULL);
+    sigaction (SIGURG, & act, NULL);
 }
 
 void sigRegisterClnt ()

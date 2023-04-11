@@ -110,26 +110,30 @@
 </head>
 <body>
 <div class="container">
-    <h3>Project Rain for RaspberryPi 4B Clients Data Monitor</h3>
+    <h1>Project Rain for RaspberryPi 4B Clients Data Monitor</h1>
     <div>
         <!-- 开启定时器-->
-        <button type="button" class="list_controller" id="enableAutoUpdate" onclick="enableAutoUpdate()">
+        <button type="button" class="list_controller" id="enableAutoUpdate">
             enableAutoUpdate
         </button>
         <!--关闭定时器-->
-        <button type="button" class="list_controller" id="disableAutoUpdate" onclick="disableAutoUpdate()">
+        <button type="button" class="list_controller" id="disableAutoUpdate">
             disableAutoUpdate
         </button>
-        <!--手动取一次数据-->
-        <button type="button" class="list_controller" id="updateOnce" onclick="fetchOnce()">
+        <!--手动取一次全部数据-->
+        <button type="button" class="list_controller" id="updateOnce">
             fetchOnce
         </button>
+        <!--获取一次紧急数据-->
+        <button type="button" class="list_controller" id="updateEmerge">
+            fetchEmerge
+        </button>
         <!--清屏-->
-        <button type="button" class="list_controller" id="clearScreen" onclick="clearScreen()">
+        <button type="button" class="list_controller" id="clearScreen">
             ClearScreen
         </button>
         <button type="button" class="list_controller" id="list_status" disabled>
-            currentStatus
+            currentStatus: default
         </button>
     </div>
 
@@ -176,7 +180,7 @@
         }
         if (list.children.length <= 1)
             list.children[0].innerHTML = "<span class=\"raspi\">There Is No Client Connection</span>";
-        else list.children[0].innerHTML = "<span class=\"raspi\">Client Connection List:</span>";
+        else list.children[0].innerHTML = "<span class=\"raspi\">Client Connection List [Current: <span style=\"color: black\">" + (list.children.length - 1) + "</span>]:</span>";
     }
 
     let xhr = new XMLHttpRequest();
@@ -191,35 +195,61 @@
 
     let auto_update_date = setInterval(queryData, 10000);
 
+    let status = document.getElementById("list_status");
+    let enableAuto = document.getElementById("enableAutoUpdate");
+    let disableAuto = document.getElementById("disableAutoUpdate");
+    let updateOnce = document.getElementById("updateOnce");
+    let updateEmerge = document.getElementById("updateEmerge");
+    let clearList = document.getElementById("clearScreen");
+
+    enableAuto.addEventListener("click", enableAutoUpdate);
+    disableAuto.addEventListener("click", disableAutoUpdate);
+    updateOnce.addEventListener("click", fetchOnce);
+    updateEmerge.addEventListener("click", fetchEmerge);
+    clearList.addEventListener("click", clearScreen);
+
     function enableAutoUpdate() {
-        let s = document.getElementById("list_status");
-        s.innerHTML = "currentStatus: autoUpdate";
+        status.innerHTML = "currentStatus: autoUpdate";
+        enableAuto.setAttribute("disabled", true);
+        disableAuto.removeAttribute("disabled");
         auto_update_date = setInterval(queryData, 10000);
     }
 
     function disableAutoUpdate() {
-        let s = document.getElementById("list_status");
-        s.innerHTML = "currentStatus: manualUpdate";
+        status.innerHTML = "currentStatus: autoDisabled";
+        enableAuto.removeAttribute("disabled");
+        disableAuto.setAttribute("disabled", true);
         clearInterval(auto_update_date);
     }
 
     function fetchOnce() {
-        let s = document.getElementById("list_status");
-        s.innerHTML = "currentStatus: manualUpdate";
-        clearInterval(auto_update_date);
+        disableAutoUpdate();
+        status.innerHTML = "currentStatus: manualUpdate";
         queryData();
     }
 
+    function fetchEmerge() {
+        disableAutoUpdate();
+        status.innerHTML = "currentStatus: manualUpdate (Emerge only)";
+        queryEmerge();
+    }
+
     function clearScreen() {
-        let s = document.getElementById("list_status");
-        s.innerHTML = "currentStatus: disabled";
+        status.innerHTML = "currentStatus: disabled";
         updateList([]);
     }
 
     function queryData() {
-        xhr.open("GET", "/fetch_all_data", true);
+        xhr.open("GET", "/fetch_all", true);
         xhr.send();
     }
+
+    function queryEmerge() {
+        xhr.open("GET", "/fetch_emerge", true);
+        xhr.send();
+    }
+
+    disableAutoUpdate();
 
 
 </script>

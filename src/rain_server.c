@@ -14,6 +14,7 @@
 #include "run_server.h"
 #include "log.h"
 #include "filed.h"
+#include "ssl_pool.h"
 
 /// TODO
 /// [Done] mysql
@@ -44,7 +45,8 @@ int main (int argc, const char * argv[])
     if (sigsetjmp(jmp_server_rest, true) != 0)
         confToVarServ ();
 
-    sigRegisterServ ();
+    //// TODO
+//    sigRegisterServ ();
 
     sql_pool_accept_raspi =
             sql_pool_init (config_server.sqlHost,
@@ -83,20 +85,35 @@ int main (int argc, const char * argv[])
 
 
     web_html_fd = readOpen (WEB_HTML_PAGE);
-    web_html_bg_image_fd = readOpen (WEB_HTML_BG);
     web_html_size = fileSize (WEB_HTML_PAGE);
-    web_html_bg_image_size = fileSize (WEB_HTML_BG);
-
     web_html_buf = mmap (NULL, web_html_size, PROT_READ, MAP_PRIVATE, web_html_fd, 0);
-    web_html_bg_image_buf = mmap (NULL, web_html_bg_image_size, PROT_READ, MAP_PRIVATE, web_html_bg_image_fd, 0);
 
-//    close (web_html_fd);
-//    close (web_html_bg_image_fd);
+    perr (!initServerSocket (& server_accept_raspi, config_server.bindPort), LOG_ERR,
+          "function initServerSocket(raspi) returns false when called main");
+    perr (!initServerSocket (& server_accept_http, config_server.httpPort), LOG_ERR,
+          "function initServerSocket(http) returns false when called main");
 
+    if (config_server.modeSSL == true)
+    {
+        SSL_library_init();
+        SSL_load_error_strings();
+        OpenSSL_add_all_algorithms();
+        ERR_load_crypto_strings();
+        OPENSSL_malloc_init();
+        OPENSSL_init ();
+        OPENSSL_init_ssl (0, NULL);
+        CRYPTO_set_locking_callback(locking_function);
+        CRYPTO_set_dynlock_create_callback(dyn_create_function);
+        CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+        CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
+    }
+    loadSSLServ (& server_accept_http);
+    loadSSLServ (& server_accept_raspi);
 
-    perr (!initServerSocket (), LOG_ERR,
-          "function initServerSocket returns false when called main");
-    loadSSLServ ();
+    if (server_accept_raspi.sslEnable)
+        ssl_pool_accept_raspi = ssl_pool_init (SSL_POOL_MAX, SSL_POOL_MIN, server_accept_raspi.ssl_ctx);
+    if (server_accept_http.sslEnable)
+        ssl_pool_accept_http = ssl_pool_init (SSL_POOL_MAX, SSL_POOL_MIN, server_accept_http.ssl_ctx);
 
     server_accept_raspi.epfd = createServEpoll (server_accept_raspi.fd);
     server_accept_http.epfd = createServEpoll (server_accept_http.fd);
@@ -110,7 +127,7 @@ int main (int argc, const char * argv[])
     while (true)
     {
         sleep (10);
-        if (time (NULL) == 0)
+        if (time (NULL) == 0)  // 本条件永远不肯能成立, 这里是为了消除CLion软件的无限循环警告
             break;
     }
 

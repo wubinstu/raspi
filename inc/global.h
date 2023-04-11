@@ -24,15 +24,16 @@
 #define LED_GRE         28  // meet distance condition
 #define LED_YEL         29  // constant light indicates environmental bad, flashing indicates send a tcp package
 
-#define MAXSLEEP        128
+#define MAXSLEEP        4096
 #define BUF_SIZE        1024
 #define PAGE_4K         4096
 
 
-/** 定义树莓派CPU最大温湿度,越过此值定义为"不健康的运行状态"
- * 这个设置并没有太大意义,即使是炎热的夏天树莓派温度也不会轻易达到60以上
- * 因此这里的温湿度只是凭感觉定义着玩而已,本工程会操作亮黄灯(常亮)表示不满足环境条件 */
+/** 定义树莓派CPU外部硬件采集的数据的临界值
+ * 超过此值将标记这组数据为Emerge状态 */
 #define MAX_CPU_TEMPER  60
+#define MAX_DISTANCE    120
+#define MAX_ENV_TEMPER  70
 #define MAX_ENV_HUMIDI  75
 
 /** 创建文件(夹)时默认使用的权限组 */
@@ -47,27 +48,34 @@
 #define TEMP_PATH           "/sys/class/thermal/thermal_zone0/temp"
 
 #define WEB_HTML_PAGE       "/home/wubin/raspi/web/page.html"
-#define WEB_HTML_BG         "/home/wubin/raspi/web/door.jpg"
 
 // 线程池, 连接池 相关参数
 //线程数量最小值 = CPU核心数 + 1
 //线程数量最大值 = CPU核心数 * (1 + 平均等待时间 / 平均执行时间)
 //线程任务队列最大值 = (maximumPoolSize - corePoolSize) * 平均执行时间 / 平均等待时间
-#define THREAD_POOL_MAX     20
-#define THREAD_POOL_MIN     5
-#define THREAD_POOL_QUEUE   100
-#define SQL_POOL_MAX        20
-#define SQL_POOL_MIN        5
-#define SQL_TABLE_RASPI     "raspi"
+#define THREAD_POOL_MAX                     20
+#define THREAD_POOL_MIN                     5
+#define THREAD_POOL_QUEUE                   100
+#define THREAD_POOL_MANAGER_SLEEP_TIME      3
+#define THREAD_POOL_MANAGER_ADJUST_BY_PER   3
 
-#define POOL_MANAGER_SLEEP_TIME         3       // 单位: 秒, 指示管理者线程查看和管理POOL的时间频率
-#define POOL_MANAGER_ADJUST_BY_PER      10      // 单位: 线程数量, 指示管理者线程每次调节的增加/减少的线程数量
+
+#define SSL_POOL_MAX                        20000
+#define SSL_POOL_MIN                        50
+#define SSL_POOL_MANAGER_SLEEP_TIME         3
+#define SSL_POOL_MANAGER_ADJUST_BY_PER      50
+
+#define SQL_POOL_MAX                        50
+#define SQL_POOL_MIN                        5
+#define SQL_TABLE_RASPI                     "raspi"
+#define SQL_POOL_MANAGER_SLEEP_TIME         3
+#define SQL_POOL_MANAGER_ADJUST_BY_PER      5
 
 // 用来创建客户端结构体哈希表, 大小需要设置为素数
-#define HASH_TABLE_SIZE    1999
-#define SERVER_EPOLL_SIZE  10000
-#define UUID_CLIENT_FILE    "/tmp/tmpRaspiRainId"
-#define UUID_NONE           "UUID_NONE"
+#define HASH_TABLE_SIZE                     1999
+#define SERVER_EPOLL_SIZE                   10000
+#define UUID_CLIENT_FILE                    "/tmp/tmpRaspiRainId"
+#define UUID_NONE                           "UUID_NONE"
 
 
 /** logs levels */
@@ -91,6 +99,8 @@ extern server_info_t server_accept_http;
 extern sql_pool_t * sql_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_raspi;
 extern thread_pool_t * thread_pool_accept_http;
+extern ssl_pool_t * ssl_pool_accept_raspi;
+extern ssl_pool_t * ssl_pool_accept_http;
 
 /** hash maps (to save clients infos) */
 extern hash_table_client_t * hash_table_raspi;
@@ -111,9 +121,6 @@ extern int pid_file_fd;
 extern int web_html_fd;
 extern long web_html_size;
 extern char * web_html_buf;
-extern int web_html_bg_image_fd;
-extern long web_html_bg_image_size;
-extern char * web_html_bg_image_buf;
 
 /** help to reload configuration file,reconnect when meet a problem */
 extern jmp_buf jmp_client_rest;

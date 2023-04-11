@@ -10,7 +10,7 @@
 #include "types.h"
 
 // TODO
-// 1. [DONE] enable ssl transmission
+// 1. [DONE] enable ssl_fd transmission
 // 2. [IGNORE] set socket to no blocking mode
 // 3. [DONE] Recover in case of network error or server send disconnect (alarm read)
 // 4. [IGNORE] fd manage
@@ -43,7 +43,6 @@ int main (int argc, const char * argv[])
     confToVarClnt ();  // read conf file
     runTimeArgsClnt (argc, argv);  // Check Runtime parameters
     openlog (PROJECT_CLIENT_NAME, LOG_CONS | LOG_PID, LOG_DAEMON);
-
 
     // Check whether you have root privileges
     if (strcmp (config_client.pidFile, "disable") != 0)

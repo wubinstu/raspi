@@ -226,9 +226,10 @@ bool sql_pool_conn_del (sql_pool_t * pool, unsigned int del_num)
     int counter = 0;
     lock_robust_mutex (& pool->lock);
     for (int i = 0; i < pool->conn_max && counter < del_num; i++)
-        if (pool->sql_pool[i].isConnected)
+        if (pool->sql_pool[i].isConnected && pool->sql_pool[i].isBusy == false)
         {
             mysql_close (pool->sql_pool[i].connection);
+            pool->sql_pool[i].connection = NULL;
             pool->sql_pool[i].isConnected = false;
             pool->conn_cur--;
             counter++;
@@ -241,10 +242,10 @@ void * sql_pool_manage (void * args)
 {
     sql_pool_t * pool = (sql_pool_t *) args;
 
-    const unsigned int SQL_CONN_ADJUST = POOL_MANAGER_ADJUST_BY_PER;
+    const unsigned int SQL_CONN_ADJUST = SQL_POOL_MANAGER_ADJUST_BY_PER;
     while (!pool->shutdown)
     {
-        sleep (POOL_MANAGER_SLEEP_TIME);
+        sleep (SQL_POOL_MANAGER_SLEEP_TIME);
         if (pool->conn_cur - pool->conn_busy <= 1)
             sql_pool_conn_add (pool, SQL_CONN_ADJUST);
         else if ((pool->conn_cur - pool->conn_busy) / (double) pool->conn_max > (double) 0.5)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(rain VERSION 1.5.2 LANGUAGES C)
+project(rain VERSION 1.7 LANGUAGES C)
 
 set(SIMULATOR true)
 set(CMAKE_INSTALL_PREFIX /usr/local)
@@ -48,15 +48,15 @@ add_library(self_sql ${LIB_TYPE} src/log.c src/self_sql.c)
 add_library(self_thread ${LIB_TYPE} src/log.c src/self_thread.c)
 add_library(socket_fd ${LIB_TYPE} src/socket_fd.c src/global.c src/log.c)
 add_library(sql_pool ${LIB_TYPE} src/sql_pool.c)
+add_library(ssl_pool ${LIB_TYPE} src/log.c src/ssl_pool.c)
 add_library(thread_pool ${LIB_TYPE} src/thread_pool.c)
 add_library(web_http ${LIB_TYPE} src/web_http.c)
 
 
 # exec
-add_executable(rain_client rain_client.c)
-add_executable(rain_server rain_server.c)
-add_executable(multi_client_test multi_client_test.c)
-add_executable(test test.c src/types.c)
+add_executable(rain_client src/rain_client.c)
+add_executable(rain_server src/rain_server.c)
+add_executable(multi_client_test src/multi_client_test.c)
 
 #link
 if (NOT ${SIMULATOR})
@@ -65,22 +65,22 @@ endif ()
 
 target_link_libraries(rssl crypto ssl)
 target_link_libraries(conf arr filed)
-target_link_libraries(load_clean conf raspi_drive rssl socket_fd sql_pool thread_pool)
+target_link_libraries(load_clean conf raspi_drive rssl socket_fd sql_pool ssl_pool thread_pool)
 target_link_libraries(rsignal load_clean)
 target_link_libraries(run_client load_clean uuid)
 target_link_libraries(run_server load_clean uuid)
 
 target_link_libraries(self_sql mysqlclient)
 target_link_libraries(self_thread pthread)
+target_link_libraries(ssl_pool crypto ssl self_thread)
 target_link_libraries(sql_pool self_sql self_thread)
 target_link_libraries(thread_pool self_thread)
 target_link_libraries(web_http arr)
 
 
 target_link_libraries(rain_client rsignal run_client)
-target_link_libraries(rain_server rsignal run_server sql_pool thread_pool web_http)
+target_link_libraries(rain_server rsignal run_server web_http)
 
-target_link_libraries(test web_http filed pthread)
 
 set(systemdUnit /usr/lib/systemd/system)
 install(TARGETS rain_client DESTINATION bin)
@@ -89,7 +89,7 @@ install(FILES rain_client.service DESTINATION ${systemdUnit})
 install(FILES rain_server.service DESTINATION ${systemdUnit})
 
 
-message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精' 这是本人首个工程级别项目,祝愿它足够优秀")
+message(STATUS "工程代号:灵泽  出自: [晋] 张骏《东门行》: '旱天降灵泽,朝日辉华精' 这是本人首个工程级别项目,祝愿它人模狗样")
 string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S")
 message(STATUS "Build TimeStamp = ${BUILD_TIMESTAMP}")
 message(STATUS "Project Name = ${CMAKE_PROJECT_NAME}")
@@ -102,4 +102,4 @@ message(STATUS "Binary OutPut Path = ${PROJECT_BINARY_DIR}/${EXECUTABLE_OUTPUT_P
 message(STATUS "Library Output Path = ${PROJECT_BINARY_DIR}/${LIBRARY_OUTPUT_PATH}")
 message(STATUS "Install Path = ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Systemd Unit File Path = ${systemdUnit}")
-message(STATUS "Configuration File Path = ${CMAKE_INSTALL_PREFIX}/etc/${CMAKE_PROJECT_NAME}.conf")
+message(STATUS "Configuration File Path = ${CMAKE_INSTALL_PREFIX}/etc/${CMAKE_PROJECT_NAME}_*.conf")

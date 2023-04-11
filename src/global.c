@@ -21,6 +21,8 @@ server_info_t server_accept_http;
 sql_pool_t * sql_pool_accept_raspi = NULL;
 thread_pool_t * thread_pool_accept_raspi = NULL;
 thread_pool_t * thread_pool_accept_http = NULL;
+ssl_pool_t * ssl_pool_accept_raspi = NULL;
+ssl_pool_t * ssl_pool_accept_http = NULL;
 
 hash_table_client_t * hash_table_raspi = NULL;
 hash_table_client_t * hash_table_http = NULL;
@@ -36,10 +38,6 @@ int pid_file_fd = -1;
 int web_html_fd = -1;
 long web_html_size = -1;
 char * web_html_buf = NULL;
-int web_html_bg_image_fd = -1;
-long web_html_bg_image_size = -1;
-char * web_html_bg_image_buf = NULL;
-
 
 jmp_buf jmp_client_rest;
 jmp_buf jmp_server_rest;

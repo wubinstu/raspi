@@ -17,18 +17,18 @@ char * NameToHost (char * domain)
     return inet_ntoa (* (struct in_addr *) host->h_addr_list[0]);
 }
 
-int createServSock (server_info_t serverInfo)
+int createServSock (server_info_t * serverInfo)
 {
     int status;
     // to accept function's return value
-    serverInfo.fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverInfo.fd == -1)
+    serverInfo->fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverInfo->fd == -1)
     {
         perr (true, socket_fd_logLevel,
               "function socket returns -1 when called createServSock");
         return -1;
     }
-    status = bind (serverInfo.fd, (struct sockaddr *) & serverInfo.addr, serverInfo.addr_len);
+    status = bind (serverInfo->fd, (struct sockaddr *) & serverInfo->addr, serverInfo->addr_len);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -37,7 +37,7 @@ int createServSock (server_info_t serverInfo)
     }
     // bind addr info to socket
 
-    status = listen (serverInfo.fd, SOMAXCONN);
+    status = listen (serverInfo->fd, SOMAXCONN);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -47,26 +47,26 @@ int createServSock (server_info_t serverInfo)
     // SERVER socket created!
     perr (true, LOG_INFO,
           "Server Socket Created, fd = %d, port = %d",
-          serverInfo.fd, ntohs (serverInfo.addr.sin_port));
+          serverInfo->fd, ntohs (serverInfo->addr.sin_port));
 
-    return serverInfo.fd;
+    return serverInfo->fd;
 }
 
-int connectServ (server_info_t serverInfo)
+int connectServ (server_info_t * serverInfo)
 {
     int status;
     // to accept function's return value
-    serverInfo.fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverInfo.fd == -1)
+    serverInfo->fd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverInfo->fd == -1)
     {
         perr (true, socket_fd_logLevel,
               "function socket returns -1 when called connectServ");
-        return serverInfo.fd;
+        return serverInfo->fd;
     }
 
 
     // send connection request
-    status = connect (serverInfo.fd, (struct sockaddr *) & serverInfo.addr, serverInfo.addr_len);
+    status = connect (serverInfo->fd, (struct sockaddr *) & serverInfo->addr, serverInfo->addr_len);
     if (status == -1)
     {
         perr (true, socket_fd_logLevel,
@@ -75,9 +75,9 @@ int connectServ (server_info_t serverInfo)
     }
     perr (true, LOG_INFO,
           "Successfully connected to server[%d] %s:%d",
-          serverInfo.fd, inet_ntoa (serverInfo.addr.sin_addr), ntohs (serverInfo.addr.sin_port));
+          serverInfo->fd, inet_ntoa (serverInfo->addr.sin_addr), ntohs (serverInfo->addr.sin_port));
 
-    return serverInfo.fd;
+    return serverInfo->fd;
 }
 
 int acceptClnt (int server_fd, struct sockaddr_in * clnt_addr)
@@ -124,6 +124,15 @@ void sockReuseAddr (int fd)
           "function setsockopt returns -1 when called sockReuseAddr");
 }
 
+void sockReusePort (int fd)
+{
+    int opt = 1;
+    int status = setsockopt
+            (fd, SOL_SOCKET, SO_REUSEPORT, (void *) & opt, (socklen_t) sizeof (opt));
+    perr (status == -1, socket_fd_logLevel,
+          "function setsockopt returns -1 when called sockReusePort");
+}
+
 void sockKeepAlive (int fd)
 {
     int opt = 1;
@@ -135,11 +144,20 @@ void sockKeepAlive (int fd)
 
 void sockNagle (int fd)
 {
+    int opt = 0;
+    int status = setsockopt
+            (fd, IPPROTO_TCP, TCP_NODELAY, (void *) & opt, (socklen_t) sizeof (opt));
+    perr (status == -1, socket_fd_logLevel,
+          "function setsockopt returns -1 when called sockNoNagle");
+}
+
+void sockNoNagle (int fd)
+{
     int opt = 1;
     int status = setsockopt
             (fd, IPPROTO_TCP, TCP_NODELAY, (void *) & opt, (socklen_t) sizeof (opt));
     perr (status == -1, socket_fd_logLevel,
-          "function setsockopt returns -1 when called sockNagle");
+          "function setsockopt returns -1 when called sockNoNagle");
 }
 
 int setSockFlag (int fd, int flags, bool isTrue)

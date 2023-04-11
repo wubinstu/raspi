@@ -9,6 +9,7 @@
 #include "types.h"
 
 #include "openssl/ssl.h"
+#include "openssl/crypto.h"
 #include "openssl/err.h"
 #include "openssl/x509.h"
 

@@ -11,101 +11,79 @@
 #include "log.h"
 #include "thread_pool.h"
 #include "sql_pool.h"
+#include "ssl_pool.h"
 #include "self_sql.h"
 #include "self_thread.h"
 #include "filed.h"
 #include "web_http.h"
 
-int readClient (client_info_t clientInfo, void * buf, int size)
+
+int readClient (client_info_t * clientInfo, void * buf, int size)
 {
+    if (clientInfo == NULL || buf == NULL || size < 0)
+        return -1;
+
     int read_size;
-    if (clientInfo.sslEnable)
-        read_size = SSL_read (clientInfo.ssl_fd, buf, size);
-    else read_size = (int) read (clientInfo.fd, buf, size);
+    if (clientInfo->sslEnable)
+        read_size = SSL_read (clientInfo->ssl->ssl_fd, buf, size);
+    else read_size = (int) read (clientInfo->fd, buf, size);
     return read_size;
 }
 
-int writeClient (client_info_t clientInfo, void * buf, int size)
+int writeClient (client_info_t * clientInfo, void * buf, int size)
 {
+    if (clientInfo == NULL || buf == NULL || size < 0)
+        return -1;
+
     int write_size;
-    if (clientInfo.sslEnable)
-        write_size = SSL_write (clientInfo.ssl_fd, buf, size);
-    else write_size = (int) write (clientInfo.fd, buf, size);
+    if (clientInfo->sslEnable)
+        write_size = SSL_write (clientInfo->ssl->ssl_fd, buf, size);
+    else write_size = (int) write (clientInfo->fd, buf, size);
     return write_size;
 }
 
-bool initServerSocket ()
+bool initServerSocket (server_info_t * serverInfo, unsigned short port)
 {
-    memset (& server_accept_raspi, 0, sizeof (server_accept_raspi));
-    memset (& server_accept_http, 0, sizeof (server_accept_http));
-
-    server_accept_raspi.addr.sin_addr.s_addr = config_server.bindIp;
-    server_accept_raspi.addr.sin_port = htons (config_server.bindPort);
-    server_accept_raspi.addr.sin_family = AF_INET;
-    server_accept_raspi.addr_len = sizeof (server_accept_raspi.addr);
-    server_accept_raspi.fd = createServSock (server_accept_raspi);
-
-    server_accept_http.addr.sin_addr.s_addr = config_server.bindIp;
-    server_accept_http.addr.sin_port = htons (config_server.httpPort);
-    server_accept_http.addr.sin_family = AF_INET;
-    server_accept_http.addr_len = sizeof (server_accept_http.addr);
-    server_accept_http.fd = createServSock (server_accept_http);
+    serverInfo->addr.sin_addr.s_addr = config_server.bindIp;
+    serverInfo->addr.sin_port = htons (port);
+    serverInfo->addr.sin_family = AF_INET;
+    serverInfo->addr_len = sizeof (serverInfo->addr);
+    serverInfo->fd = createServSock (serverInfo);
 
     if (config_server.modeSSL)
-        server_accept_raspi.sslEnable = true,
-                server_accept_http.sslEnable = true;
+        serverInfo->sslEnable = true;
 
-    if (server_accept_raspi.fd == -1 || server_accept_http.fd == -1)
+    if (serverInfo->fd == -1)
         return false;
-    sockReuseAddr (server_accept_raspi.fd);
-    sockReuseAddr (server_accept_http.fd);
+    sockReuseAddr (serverInfo->fd);
+    sockReusePort (serverInfo->fd);
+    sockNoNagle (serverInfo->fd);
     return true;
 }
 
-void loadSSLServ ()
+void loadSSLServ (server_info_t * serverInfo)
 {
-    if (server_accept_raspi.sslEnable)
-    {
-        server_accept_raspi.ssl_ctx = initSSL (true);
-        if (server_accept_raspi.ssl_ctx == NULL) exitCleanupServ ();
+    if (!serverInfo->sslEnable)
+        return;
 
-        int rtn_flag = loadCA (server_accept_raspi.ssl_ctx, config_server.caFile);
-        if (!rtn_flag) exitCleanupServ ();
+    serverInfo->ssl_ctx = initSSL (true);
+    if (serverInfo->ssl_ctx == NULL) exitCleanupServ ();
 
-        rtn_flag = loadCert (server_accept_raspi.ssl_ctx, config_server.servCert);
-        if (!rtn_flag) exitCleanupServ ();
+    int rtn_flag = loadCA (serverInfo->ssl_ctx, config_server.caFile);
+    if (!rtn_flag) exitCleanupServ ();
 
-        rtn_flag = loadKey (server_accept_raspi.ssl_ctx, config_server.servKey);
-        if (!rtn_flag) exitCleanupServ ();
+    rtn_flag = loadCert (serverInfo->ssl_ctx, config_server.servCert);
+    if (!rtn_flag) exitCleanupServ ();
 
-        rtn_flag = checkKey (server_accept_raspi.ssl_ctx);
-        if (!rtn_flag) exitCleanupServ ();
+    rtn_flag = loadKey (serverInfo->ssl_ctx, config_server.servKey);
+    if (!rtn_flag) exitCleanupServ ();
 
-        server_accept_raspi.ssl_fd = SSL_fd (server_accept_raspi.ssl_ctx, server_accept_raspi.fd);
-        if (server_accept_raspi.ssl_fd == NULL) exitCleanupServ ();
-        setVerifyPeer (server_accept_raspi.ssl_ctx, false);
-    }
-    if (server_accept_http.sslEnable)
-    {
-        server_accept_http.ssl_ctx = initSSL (true);
-        if (server_accept_http.ssl_ctx == NULL) exitCleanupServ ();
+    rtn_flag = checkKey (serverInfo->ssl_ctx);
+    if (!rtn_flag) exitCleanupServ ();
 
-        int rtn_flag = loadCA (server_accept_http.ssl_ctx, config_server.caFile);
-        if (!rtn_flag) exitCleanupServ ();
-
-        rtn_flag = loadCert (server_accept_http.ssl_ctx, config_server.servCert);
-        if (!rtn_flag) exitCleanupServ ();
-
-        rtn_flag = loadKey (server_accept_http.ssl_ctx, config_server.servKey);
-        if (!rtn_flag) exitCleanupServ ();
-
-        rtn_flag = checkKey (server_accept_http.ssl_ctx);
-        if (!rtn_flag) exitCleanupServ ();
-
-        server_accept_http.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, server_accept_http.fd);
-        if (server_accept_http.ssl_fd == NULL) exitCleanupServ ();
-        setVerifyPeer (server_accept_http.ssl_ctx, false);
-    }
+    serverInfo->ssl_fd = SSL_fd (serverInfo->ssl_ctx, serverInfo->fd);
+    if (serverInfo->ssl_fd == NULL) exitCleanupServ ();
+    setVerifyPeer (serverInfo->ssl_ctx, false);
 }
 
 void negotiateUUID (client_info_t * clientInfo)
@@ -116,12 +94,12 @@ void negotiateUUID (client_info_t * clientInfo)
     memset (uuid_client, 0, sizeof (uuid_t));
     memset (uuid_client_string, 0, sizeof (uuid_client_string));
 
-    readClient (* clientInfo, uuid_client, sizeof (uuid_t));
+    readClient (clientInfo, uuid_client, sizeof (uuid_t));
 //    if (uuid_compare (uuid_client, (uuid_t) {UUID_NONE}) == 1)
     if (memcmp (uuid_client, UUID_NONE, strlen (UUID_NONE)) == 0 ||
         memcmp (uuid_client, uuid_zero, sizeof (uuid_t)) == 0)
         uuid_generate (uuid_client),
-                writeClient (* clientInfo, uuid_client, sizeof (uuid_t));
+                writeClient (clientInfo, uuid_client, sizeof (uuid_t));
     memcpy (clientInfo->id, uuid_client, sizeof (uuid_t));
 
     uuid_unparse (clientInfo->id, uuid_client_string);
@@ -173,10 +151,10 @@ void * raspiEventPoll (void * args)
                           ntohs (client_hash_node->clientInfo.addr.sin_port));
                     if (client_hash_node->clientInfo.sql != NULL)
                         sql_pool_conn_release (sql_pool_accept_raspi, & client_hash_node->clientInfo.sql);
-                    if (client_hash_node->clientInfo.sslEnable && client_hash_node->clientInfo.ssl_fd != NULL)
+                    if (client_hash_node->clientInfo.sslEnable && client_hash_node->clientInfo.ssl != NULL)
                     {
-                        SSL_shutdown (client_hash_node->clientInfo.ssl_fd);
-                        SSL_free (client_hash_node->clientInfo.ssl_fd);
+                        SSL_shutdown (client_hash_node->clientInfo.ssl->ssl_fd);
+                        ssl_pool_node_release (ssl_pool_accept_raspi, & client_hash_node->clientInfo.ssl);
                     }
                     close (client_hash_node->clientInfo.fd);
                     pthread_mutex_destroy (& client_hash_node->clientInfo.onProcess);
@@ -210,7 +188,7 @@ void * raspiEventPoll (void * args)
 
 
                 client_hash_node->next = NULL;
-                client_hash_node->clientInfo.ssl_fd = NULL;
+                client_hash_node->clientInfo.ssl = NULL;
                 client_hash_node->clientInfo.sslEnable = false;
                 client_hash_node->hash_node_key = client_ev.data.fd;
                 client_hash_node->clientInfo.fd = client_ev.data.fd;
@@ -263,13 +241,37 @@ void * processRaspiClient (void * args)
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_raspi.sslEnable && !task_client->clientInfo.sslEnable)
     {
-        if (task_client->clientInfo.ssl_fd == NULL)
-            task_client->clientInfo.ssl_fd = SSL_new (server_accept_raspi.ssl_ctx);
+//        if (task_client->clientInfo.ssl_fd == NULL)
+//            task_client->clientInfo.ssl_fd = SSL_new (server_accept_raspi.ssl_ctx);
+        if (task_client->clientInfo.ssl == NULL)
+        {
+            time_t start = time (NULL);
+            while (true)
+            {
+                task_client->clientInfo.ssl = ssl_pool_node_fetch (ssl_pool_accept_raspi);
+                if (task_client->clientInfo.ssl != NULL)
+                    break;
+                sleep (1);
+                if (time (NULL) - start > 20)
+                {
+                    epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
 
-        SSL_set_fd (task_client->clientInfo.ssl_fd, task_client->clientInfo.fd);
+                    perr (true, LOG_INFO, "Can Not Fetch A SSL fd! Delete: client[%d] form %s:%d",
+                          task_client->clientInfo.fd,
+                          inet_ntoa (task_client->clientInfo.addr.sin_addr),
+                          ntohs (task_client->clientInfo.addr.sin_port));
+                    close (task_client->clientInfo.fd);
+                    pthread_mutex_destroy (& task_client->clientInfo.onProcess);
+                    hash_table_client_del (hash_table_raspi, task_client->clientInfo.fd);
 
-        int ssl_accept_rtn = SSL_accept (task_client->clientInfo.ssl_fd);
-        int ssl_rtn = SSL_get_error (task_client->clientInfo.ssl_fd, ssl_accept_rtn);
+                    return (void *) -1;
+                }
+            }
+            SSL_set_fd (task_client->clientInfo.ssl->ssl_fd, task_client->clientInfo.fd);
+        }
+        int ssl_accept_rtn = SSL_accept (task_client->clientInfo.ssl->ssl_fd);
+        int ssl_rtn = SSL_get_error (task_client->clientInfo.ssl->ssl_fd, ssl_accept_rtn);
+
         if (ssl_rtn == SSL_ERROR_WANT_READ || ssl_rtn == SSL_ERROR_WANT_WRITE)
         {
             task_client->clientInfo.sslEnable = false;
@@ -298,8 +300,9 @@ void * processRaspiClient (void * args)
 //            epoll_ctl (server_accept_raspi.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
 //            hash_table_client_del (hash_table_raspi, task_client->clientInfo.fd, task_client->clientInfo.fd);
 
-            // 服务器关闭套接字, 触发HUP事件
-            close (task_client->clientInfo.fd);
+            // 服务器尝试触发HUP事件
+//            close (task_client->clientInfo.fd);
+            recv (task_client->clientInfo.fd, & task_client->clientInfo.buf, BUFSIZ, MSG_PEEK);
             pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return (void *) -1;
         }
@@ -317,7 +320,7 @@ void * processRaspiClient (void * args)
 
 
     memset (task_client->clientInfo.buf, 0, BUFSIZ);
-    read_len = readClient (task_client->clientInfo, task_client->clientInfo.buf, BUFSIZ);
+    read_len = readClient (& task_client->clientInfo, task_client->clientInfo.buf, sizeof (RaspiMonitData));
 
 
     // 常规消息
@@ -346,7 +349,8 @@ void * processRaspiClient (void * args)
                  (* (RaspiMonitData *) task_client->clientInfo.buf).distance,
                  (* (RaspiMonitData *) task_client->clientInfo.buf).env_temper,
                  (* (RaspiMonitData *) task_client->clientInfo.buf).env_humidity);
-//        while(task_client->clientInfo.sql != NULL)
+
+        // 将实时数据写入数据库
         task_client->clientInfo.sql = sql_pool_conn_fetch (sql_pool_accept_raspi);
         if (task_client->clientInfo.sql == NULL)
         {
@@ -356,12 +360,15 @@ void * processRaspiClient (void * args)
         mysql_insert_values (task_client->clientInfo.sql->connection, SQL_TABLE_RASPI, insert_filed, insert_values);
         sql_pool_conn_release (sql_pool_accept_raspi, & task_client->clientInfo.sql);
 
+        // 生成实时数据结构体
         hash_node_sql_data_t real_time_data;
         real_time_data.next = NULL;
         real_time_data.socket_fd = task_client->clientInfo.fd;
         sprintf (real_time_data.time_stamp, "%s %s", date, time);
         real_time_data.monitData = * (RaspiMonitData *) task_client->clientInfo.buf;
         sprintf (real_time_data.uuid, "%s", uuid_string);
+
+        // 限时等待更新自己的数据
         struct timespec wait;
         clock_gettime (CLOCK_REALTIME, & wait);
         wait.tv_sec += 5;
@@ -405,14 +412,14 @@ void * httpEventPoll (void * args)
                 if (client_hash_node != NULL)
                 {
                     lock_robust_mutex (& client_hash_node->clientInfo.onProcess);
-                    perr (true, LOG_INFO, "HTTP Client Disconnect! Delete: client[%d] form %s:%d",
+                    perr (true, LOG_INFO, "A HTTP Client Disconnect! Delete: client[%d] form %s:%d",
                           client_hash_node->clientInfo.fd,
                           inet_ntoa (client_hash_node->clientInfo.addr.sin_addr),
                           ntohs (client_hash_node->clientInfo.addr.sin_port));
-                    if (client_hash_node->clientInfo.sslEnable && client_hash_node->clientInfo.ssl_fd != NULL)
+                    if (client_hash_node->clientInfo.sslEnable && client_hash_node->clientInfo.ssl != NULL)
                     {
-                        SSL_shutdown (client_hash_node->clientInfo.ssl_fd);
-                        SSL_free (client_hash_node->clientInfo.ssl_fd);
+                        SSL_shutdown (client_hash_node->clientInfo.ssl->ssl_fd);
+                        ssl_pool_node_release (ssl_pool_accept_http, & client_hash_node->clientInfo.ssl);
                     }
                     close (client_hash_node->clientInfo.fd);
                     pthread_mutex_destroy (& client_hash_node->clientInfo.onProcess);
@@ -433,8 +440,10 @@ void * httpEventPoll (void * args)
                 }
                 // 设置客户端套接字: 非阻塞
                 setSockFlag (client_ev.data.fd, O_NONBLOCK, true);
+                // 禁用Nagle 算法
+//                sockNoNagle (client_ev.data.fd);
                 // 设置客户端套接字: KeepAlive
-                //sockKeepAlive (client_ev.data.fd);
+//                sockKeepAlive (client_ev.data.fd);
                 // 设置客户端套接字: 关注的事件
                 client_ev.events = EPOLLIN /*| EPOLLET*/ | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
                 epoll_ctl (serverInfo.epfd, EPOLL_CTL_ADD, client_ev.data.fd, & client_ev);
@@ -445,7 +454,7 @@ void * httpEventPoll (void * args)
 
 
                 client_hash_node->next = NULL;
-                client_hash_node->clientInfo.ssl_fd = NULL;
+                client_hash_node->clientInfo.ssl = NULL;
                 client_hash_node->clientInfo.sslEnable = false;
                 client_hash_node->hash_node_key = client_ev.data.fd;
                 client_hash_node->clientInfo.fd = client_ev.data.fd;
@@ -461,6 +470,8 @@ void * httpEventPoll (void * args)
             else
             {
                 client_hash_node = hash_table_client_get (hash_table_http, event_server_http[i].data.fd);
+                if (client_hash_node == NULL)
+                    continue;
                 memset (& task, 0, sizeof (task));
                 task.state = newlyBuild;
                 task.ctime = time (NULL);
@@ -481,20 +492,50 @@ void * processHttpClient (void * args)
     int read_len;
     hash_node_client_t * task_client = hash_table_client_get (hash_table_http, client_fd);
     if (task_client == NULL)return NULL;
-    if (pthread_mutex_trylock (& task_client->clientInfo.onProcess) != 0)
+    struct timespec task_wait;
+    clock_gettime (CLOCK_REALTIME, & task_wait);
+    task_wait.tv_sec += 5;
+    if (pthread_mutex_timedlock (& task_client->clientInfo.onProcess, & task_wait) != 0)
         return NULL;
 
     // SSL 握手: "如果服务器套接字为SSL模式,但是客户套接字仍然为非SSL模式"
     if (server_accept_http.sslEnable && !task_client->clientInfo.sslEnable)
     {
-        if (task_client->clientInfo.ssl_fd == NULL)
+//        if (task_client->clientInfo.ssl_fd == NULL)
 //            task_client->clientInfo.ssl_fd = SSL_new (server_accept_http.ssl_ctx);
 //
 //        SSL_set_fd (task_client->clientInfo.ssl_fd, task_client->clientInfo.fd);
-            task_client->clientInfo.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, task_client->clientInfo.fd);
+//            task_client->clientInfo.ssl_fd = SSL_fd (server_accept_http.ssl_ctx, task_client->clientInfo.fd);
 
-        int ssl_accept_rtn = SSL_accept (task_client->clientInfo.ssl_fd);
-        int ssl_rtn = SSL_get_error (task_client->clientInfo.ssl_fd, ssl_accept_rtn);
+        if (task_client->clientInfo.ssl == NULL)
+        {
+            time_t start = time (NULL);
+            while (true)
+            {
+                task_client->clientInfo.ssl = ssl_pool_node_fetch (ssl_pool_accept_http);
+                if (task_client->clientInfo.ssl != NULL)
+                    break;
+                if (time (NULL) - start > 20)
+                {
+                    epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
+
+                    perr (true, LOG_INFO, "Can Not Fetch A SSL fd! Delete: client[%d] form %s:%d",
+                          task_client->clientInfo.fd,
+                          inet_ntoa (task_client->clientInfo.addr.sin_addr),
+                          ntohs (task_client->clientInfo.addr.sin_port));
+                    close (task_client->clientInfo.fd);
+                    pthread_mutex_destroy (& task_client->clientInfo.onProcess);
+                    hash_table_client_del (hash_table_http, task_client->clientInfo.fd);
+
+                    return (void *) -1;
+                }
+                sleep (1);
+            }
+            SSL_set_fd (task_client->clientInfo.ssl->ssl_fd, task_client->clientInfo.fd);
+        }
+        int ssl_accept_rtn = SSL_accept (task_client->clientInfo.ssl->ssl_fd);
+        int ssl_rtn = SSL_get_error (task_client->clientInfo.ssl->ssl_fd, ssl_accept_rtn);
+
         if (ssl_rtn == SSL_ERROR_WANT_READ || ssl_rtn == SSL_ERROR_WANT_WRITE)
         {
             task_client->clientInfo.sslEnable = false;
@@ -519,48 +560,67 @@ void * processHttpClient (void * args)
                   task_client->clientInfo.fd,
                   inet_ntoa (task_client->clientInfo.addr.sin_addr),
                   ntohs (task_client->clientInfo.addr.sin_port));
-//            ERR_print_errors_fp (stdout);
-//            epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
-//            hash_table_client_del (hash_table_http, task_client->clientInfo.fd, task_client->clientInfo.fd);
+            ERR_print_errors_fp (stdout);
 
-            // 手动触发 epoll 函数的 HUP 事件
+            epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
+            perr (true, LOG_INFO, "B HTTP Client Disconnect! Delete: client[%d] form %s:%d",
+                  task_client->clientInfo.fd,
+                  inet_ntoa (task_client->clientInfo.addr.sin_addr),
+                  ntohs (task_client->clientInfo.addr.sin_port));
+
+            if (task_client->clientInfo.ssl != NULL)
+                ssl_pool_node_release (ssl_pool_accept_http, & task_client->clientInfo.ssl);
+
+
             close (task_client->clientInfo.fd);
-            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+            pthread_mutex_destroy (& task_client->clientInfo.onProcess);
+            hash_table_client_del (hash_table_http, task_client->clientInfo.fd);
             return (void *) -1;
         }
     }
 
 
     memset (task_client->clientInfo.buf, 0, BUFSIZ);
-    read_len = readClient (task_client->clientInfo, task_client->clientInfo.buf, BUFSIZ);
+    read_len = readClient (& task_client->clientInfo, task_client->clientInfo.buf, BUFSIZ);
     if (read_len <= 0)
     {
         pthread_mutex_unlock (& task_client->clientInfo.onProcess);
         return (void *) -1;
     }
+//    fputs (task_client->clientInfo.buf, stdout);
 
-    http_request_t req;
+    http_request_t req = {0};
     http_request_get (task_client->clientInfo.buf, & req);
-    http_request_print (& req);
+//    http_request_print (& req);
 
+    int query = 0;
+
+    if ((strlen (req.URI) == 1 && req.URI[0] == '/') ||
+        (igStrCmp (req.URI, "/home", (int) strlen (req.URI)) == 0) ||
+        (igStrCmp (req.URI, "/index", (int) strlen (req.URI)) == 0))
+        query = 1;
+    else if (igStrCmp (req.URI, "/fetch_all", (int) strlen (req.URI)) == 0)
+        query = 2;
+    else if (igStrCmp (req.URI, "/fetch_emerge", (int) strlen (req.URI)) == 0)
+        query = 3;
+    else if (req.method == GET)
+        query = 4;
 
 
     // 初始请求
-    if (strlen (req.URI) == 1 && req.URI[0] == '/')
+    if (query == 1)
     {
         http_response_t res;
         http_response_generate (& res, req.version, HTTP_200, keepalive);
         char buf_http[web_html_size + 200];
-//        http_response_add_content (& res, web_html_buf, (int) web_html_size, text_html);
         res.contentType = text_html;
         res.contentLength = (int) web_html_size;
         http_response_tostring (& res, buf_http);
-        writeClient (task_client->clientInfo, buf_http, (int) strlen (buf_http));
-        writeClient (task_client->clientInfo, "\r\n", 2);
-        writeClient (task_client->clientInfo, web_html_buf, (int) web_html_size);
+        writeClient (& task_client->clientInfo, buf_http, (int) strlen (buf_http));
+        writeClient (& task_client->clientInfo, "\r\n", 2);
+        writeClient (& task_client->clientInfo, web_html_buf, (int) web_html_size);
         pthread_mutex_unlock (& task_client->clientInfo.onProcess);
-        return NULL;
-    } else if (igStrCmp (req.URI, "/fetch_all_data", (int) strlen (req.URI)) == 0)
+    } else if (query == 2 || query == 3)
     {
         http_response_t res;
         http_response_generate (& res, req.version, HTTP_200, keepalive);
@@ -572,7 +632,7 @@ void * processHttpClient (void * args)
             res.status = HTTP_204;
             char buf_http[200];
             char * end = http_response_tostring (& res, buf_http);
-            writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
+            writeClient (& task_client->clientInfo, buf_http, (int) (end - buf_http));
             pthread_mutex_unlock (& task_client->clientInfo.onProcess);
             return NULL;
         }
@@ -585,46 +645,47 @@ void * processHttpClient (void * args)
             alloc_size = 1/*JSON数组左括号*/ +
                          ((client_num - 1) * 140)/*N-1 个 js 对象(JSON字符串,附带逗号)*/ +
                          139/*最后一个js对象*/ + 1/*JSON数组右括号*/ + 8 * client_num /*安全缓冲区*/;
-        char * buf_http = calloc (1, alloc_size + 200);
-        char * buf_json = (char *) calloc (1, alloc_size);
+        char buf_http[200];
+//        char * buf_json = (char *) calloc (1, alloc_size);
+        char buf_json[alloc_size];
         char * pointer = buf_json;
-        if (buf_json == NULL || buf_http == NULL)
-        {
-            res.status = HTTP_204;
-            char buf_http_back[200];
-            char * end = http_response_tostring (& res, buf_http_back);
-            writeClient (task_client->clientInfo, buf_http_back, (int) (end - buf_http_back));
-            if (buf_http != NULL)
-                free (buf_http);
-            if (buf_json != NULL)
-                free (buf_json);
-            pthread_rwlock_unlock (& hash_table_info_raspi_http->lock);
-            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
-            return NULL;
-        }
+//        if (buf_json == NULL)
+//        {
+//            res.status = HTTP_204;
+//            char buf_http_back[200];
+//            char * end = http_response_tostring (& res, buf_http_back);
+//            writeClient (task_client->clientInfo, buf_http_back, (int) (end - buf_http_back));
+//            free (buf_json);
+//            pthread_rwlock_unlock (& hash_table_info_raspi_http->lock);
+//            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+//            return NULL;
+//        }
 
         sprintf (buf_json, "[");
         pointer++;
         hash_node_sql_data_t * data;
         for (int i = 0, count = hash_table_info_raspi_http->current;
-             i < hash_table_info_raspi_http->size; i++)
+             i < hash_table_info_raspi_http->size && count != 0; i++)
         {
             if (hash_table_info_raspi_http->hashTable[i] == NULL)
                 continue;
 
-            if (count == 0)break;
-
             data = hash_table_info_raspi_http->hashTable[i];
             while (data != NULL && count != 0)
             {
-                pointer += sprintf (pointer,
-                                    "{\"timeStamp\":\"%s\","
-                                    "\"clientID\":\"%s\","
-                                    "\"cpuTemp\":\"%.0f\",\"distance\":\"%.0f\","
-                                    "\"envTemp\":\"%.0f\",\"envHumi\":\"%.0f\"},",
-                                    data->time_stamp, data->uuid, data->monitData.cpu_temper,
-                                    data->monitData.distance, data->monitData.env_temper,
-                                    data->monitData.env_humidity);
+                if (query == 2 || (query == 3 &&
+                                   (data->monitData.cpu_temper > MAX_CPU_TEMPER ||
+                                    data->monitData.distance > MAX_DISTANCE ||
+                                    data->monitData.env_temper > MAX_ENV_TEMPER ||
+                                    data->monitData.env_humidity > MAX_ENV_HUMIDI)))
+                    pointer += sprintf (pointer,
+                                        "{\"timeStamp\":\"%s\","
+                                        "\"clientID\":\"%s\","
+                                        "\"cpuTemp\":\"%.0f\",\"distance\":\"%.0f\","
+                                        "\"envTemp\":\"%.0f\",\"envHumi\":\"%.0f\"},",
+                                        data->time_stamp, data->uuid, data->monitData.cpu_temper,
+                                        data->monitData.distance, data->monitData.env_temper,
+                                        data->monitData.env_humidity);
 
                 count--;
                 data = data->next;
@@ -641,22 +702,114 @@ void * processHttpClient (void * args)
         res.contentLength = (int) strlen (buf_json);
         res.contentType = application_json;
         char * end = http_response_tostring (& res, buf_http);
-        writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
-        writeClient (task_client->clientInfo, "\r\n", 2);
-        writeClient (task_client->clientInfo, buf_json, (int) strlen (buf_json));
-        free (buf_json);
-        free (buf_http);
+        writeClient (& task_client->clientInfo, buf_http, (int) (end - buf_http));
+        writeClient (& task_client->clientInfo, "\r\n", 2);
+        writeClient (& task_client->clientInfo, buf_json, (int) strlen (buf_json));
+//        free (buf_json);
         pthread_mutex_unlock (& task_client->clientInfo.onProcess);
-        return NULL;
-    } else
+    }
+
+        // chunk
+//    else if (query == 2 || query == 3)
+//    {
+//        http_response_t res;
+//        http_response_generate (& res, req.version, HTTP_200, keepalive);
+//        struct timespec wait;
+//        clock_gettime (CLOCK_REALTIME, & wait);
+//        wait.tv_sec += 6;
+//        if (pthread_rwlock_timedwrlock (& hash_table_info_raspi_http->lock, & wait) != 0)
+//        {
+//            res.status = HTTP_204;
+//            char buf_http[200];
+//            char * end = http_response_tostring (& res, buf_http);
+//            writeClient (& task_client->clientInfo, buf_http, (int) (end - buf_http));
+//            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+//            return NULL;
+//        }
+//
+//        res.contentType = application_json;
+//        res.contentLength = 0;
+//        res.encoding = chunked;
+//        char buf_http[200];
+//        char * end = http_response_tostring (& res, buf_http);
+//        writeClient (& task_client->clientInfo, buf_http, (int) (end - buf_http));
+//        writeClient (& task_client->clientInfo, "\r\n1\r\n[\r\n", 8);
+//
+//        char buf_single[150];
+//        char buf_chunk[170];
+//        char * pointer;
+//        int send_size;
+//        hash_node_sql_data_t * data;
+//        bool first_send = true;
+//        for (int i = 0, count = hash_table_info_raspi_http->current;
+//             i < hash_table_info_raspi_http->size && count != 0; i++)
+//        {
+//            if (hash_table_info_raspi_http->hashTable[i] == NULL)
+//                continue;
+//
+//            data = hash_table_info_raspi_http->hashTable[i];
+//            while (data != NULL && count != 0)
+//            {
+//                if (query == 2 || (query == 3 &&
+//                                   (data->monitData.cpu_temper > MAX_CPU_TEMPER ||
+//                                    data->monitData.distance > MAX_DISTANCE ||
+//                                    data->monitData.env_temper > MAX_ENV_TEMPER ||
+//                                    data->monitData.env_humidity > MAX_ENV_HUMIDI)))
+//                {
+//                    pointer = buf_single;
+//                    if (first_send == false)
+//                        pointer += sprintf (buf_single, ",");
+//                    first_send = false;
+//
+//                    pointer += sprintf (pointer,
+//                                        "{\"timeStamp\":\"%s\","
+//                                        "\"clientID\":\"%s\","
+//                                        "\"cpuTemp\":\"%.0f\",\"distance\":\"%.0f\","
+//                                        "\"envTemp\":\"%.0f\",\"envHumi\":\"%.0f\"}",
+//                                        data->time_stamp, data->uuid, data->monitData.cpu_temper,
+//                                        data->monitData.distance, data->monitData.env_temper,
+//                                        data->monitData.env_humidity);
+//                    send_size = sprintf (buf_chunk, "%x\r\n%s\r\n", (int) (pointer - buf_single), buf_single);
+//                    writeClient (& task_client->clientInfo, buf_chunk, send_size);
+//
+//                }
+//                count--;
+//                data = data->next;
+//            }
+//        }
+//
+//        writeClient (& task_client->clientInfo, "1\r\n]\r\n", 6);
+//        writeClient (& task_client->clientInfo, "0\r\n", 3);
+//        pthread_rwlock_unlock (& hash_table_info_raspi_http->lock);
+//        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+//    }
+    else if (query == 4)
     {
         char buf_http[200];
         http_response_t res;
         http_response_generate (& res, req.version, HTTP_404, closed);
         http_response_add_content (& res, "<h1>404 Not Found</h1>", 22, text_html);
         char * end = http_response_tostring (& res, buf_http);
-        writeClient (task_client->clientInfo, buf_http, (int) (end - buf_http));
+        writeClient (& task_client->clientInfo, buf_http, (int) (end - buf_http));
         pthread_mutex_unlock (& task_client->clientInfo.onProcess);
-        return NULL;
     }
+    if (req.connection == closed)
+    {
+        epoll_ctl (server_accept_http.epfd, EPOLL_CTL_DEL, task_client->clientInfo.fd, NULL);
+        perr (true, LOG_INFO, "C HTTP Client Disconnect! Delete: client[%d] form %s:%d",
+              task_client->clientInfo.fd,
+              inet_ntoa (task_client->clientInfo.addr.sin_addr),
+              ntohs (task_client->clientInfo.addr.sin_port));
+
+        if (task_client->clientInfo.sslEnable && task_client->clientInfo.ssl != NULL)
+        {
+            SSL_shutdown (task_client->clientInfo.ssl->ssl_fd);
+            ssl_pool_node_release (ssl_pool_accept_http, & task_client->clientInfo.ssl);
+        }
+
+        close (task_client->clientInfo.fd);
+        pthread_mutex_destroy (& task_client->clientInfo.onProcess);
+        hash_table_client_del (hash_table_http, task_client->clientInfo.fd);
+    }
+    return NULL;
 }

@@ -39,6 +39,7 @@
 #define HTTP_RES_HEAD_DATE                  "Date: "
 #define HTTP_RES_HEAD_SERVER                "Server: "
 #define HTTP_RES_HEAD_CONNECTION            "Connection: "
+#define HTTP_RES_HEAD_TRANSFER_ENCODING     "Transfer-Encoding: "
 #define HTTP_RES_HEAD_CONTENT_LENGTH        "Content-Length: "
 #define HTTP_RES_HEAD_CONTENT_TYPE          "Content-Type: "
 

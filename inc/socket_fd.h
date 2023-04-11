@@ -12,10 +12,10 @@ extern char * NameToHost (char * domain);
 
 /** Create a server socket and return it
  * If an error occurs, return -1 */
-extern int createServSock (server_info_t serverInfo);
+extern int createServSock (server_info_t * serverInfo);
 
 /** Specify the address and port, try to connect and return the socket */
-extern int connectServ (server_info_t serverInfo);
+extern int connectServ (server_info_t * serverInfo);
 
 /** Accept the client connection request and return the client socket
  * and save the client address information in the structure */
@@ -27,11 +27,16 @@ extern int createServEpoll (int sock_fd);
 /** Sets the socket to skip the "time to wait" state when disconnected */
 extern void sockReuseAddr (int fd);
 
+extern void sockReusePort (int fd);
+
 /** set tcp socket keep alive */
 extern void sockKeepAlive (int fd);
 
-/** Using Nagle algorithm */
+
 extern void sockNagle (int fd);
+
+/** Using Nagle algorithm */
+extern void sockNoNagle (int fd);
 
 /** Sets whether the socket has the "flag" attribute and return flag */
 extern int setSockFlag (int fd, int flags, bool isTrue);

@@ -86,6 +86,28 @@ typedef struct server_info
     bool sslEnable;                     // 是否启用 SSL 连接
 } server_info_t;
 
+// SSL 连接节点
+typedef struct ssl_fd_node
+{
+    SSL * ssl_fd;                          // SSL
+    int index;                          // SSL 下表
+    bool onUsed;                        // 是否在使用中
+} ssl_node_t;
+
+// SSL 连接池
+typedef struct ssl_fd_pool
+{
+    bool shutdown;                      // 连接池关闭标志
+    SSL_CTX * ssl_ctx;                  // 用于生成SSL套接字的结构体
+    unsigned int ssl_max;               // 最大连接数量
+    unsigned int ssl_min;               // 最小连接数量
+    unsigned int ssl_cur;               // 当前有效连接数量
+    unsigned int ssl_busy;              // 当前工作中连接数量
+    ssl_node_t * ssl_pool;              // 连接池数组
+    pthread_t mtid;                     // 连接池管理者线程
+    pthread_mutex_t lock;               // 互斥锁, 保护对连接池数组读写
+    pthread_cond_t cond;                // 条件变量
+} ssl_pool_t;
 
 typedef struct mysql_conn_node
 {
@@ -122,8 +144,8 @@ typedef struct client_info
     int addr_len;                       // 客户端地址长度
     char buf[BUFSIZ];                   // 数据交互缓冲区
     uuid_t id;                          // 客户端唯一标识
-    SSL * ssl_fd;                       // SSL 套接字,加密算法,密钥,缓冲区
     bool sslEnable;                     // 是否启用 SSL 连接
+    ssl_node_t * ssl;                   // SSL 套接字
     sql_node_t * sql;                   // MySQL 数据库连接
     pthread_mutex_t onProcess;          // 线程池中单独一条线程处理,同一时间只能由一个线程处理同一个客户端
 } client_info_t;
@@ -265,7 +287,7 @@ enum http_connection_t
 
 typedef struct HttpRequest
 {
-    enum
+    enum http_request_method_t
     {
         METHOD_UNKNOWN = 0,
 
@@ -425,6 +447,16 @@ typedef struct HttpResponse
         video_mp4 = 9,                      // MP4视频格式
 
     } contentType;
+
+    enum http_transfer_encoding_t
+    {
+        encoding_none = 0,
+        chunked = 1,
+        compress = 2,
+        deflate = 3,
+        gzip = 4,
+        identity = 5
+    } encoding;
 
 
     char date[40];

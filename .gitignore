@@ -59,3 +59,4 @@ build_aliyun
 build_raspi
 bin
 .vscode
+.idea

@@ -49,7 +49,7 @@ int tryConnect (int led)
     {
         perr (true, LOG_INFO,
               "Trying to connect to the server...");
-        raspi_connect_server.fd = connectServ (raspi_connect_server);
+        raspi_connect_server.fd = connectServ (& raspi_connect_server);
         if (raspi_connect_server.fd == -1)
         {
             perr (true, LOG_NOTICE,
@@ -74,7 +74,7 @@ int tryConnect (int led)
     turn_on_led (led);
 
     setSockFlag (raspi_connect_server.fd, O_NONBLOCK, false);
-    sockNagle (raspi_connect_server.fd);
+    sockNoNagle (raspi_connect_server.fd);
     errno = errno_save;
     return 0;
 }
@@ -83,6 +83,10 @@ void loadSSLClnt ()
 {
     if (!raspi_connect_server.sslEnable)
         return;
+
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
     raspi_connect_server.ssl_ctx = initSSL (false);
     if (raspi_connect_server.ssl_ctx == NULL) exitCleanupClnt ();
     if (config_client.sslMode == ssl_load_ca)

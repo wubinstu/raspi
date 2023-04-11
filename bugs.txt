@@ -85,7 +85,7 @@
     "没办法, 毕竟使用了动态内存分配的函数不再是线程安全函数"
     解决: 首先将调用最频繁的perr日志函数中的动态内存分配去除掉, 改为栈区数组
     将runTimeArgus,preRunTimeArgus等参数处理函数中动态内存分区去除掉
-    将web_http中用于处理HTTP请求和回复的相关函数中去除动态内存的使用
+    将web_http中用于处理HTTP请求和回复的相关函数动态内存的使用去除
 
     针对于syslog引发的内存错误, 可能原因是: perr 函数中存在openlog和closelog函数
     频繁开启和关闭与syslogd之间的连接,造成不必要的开销
@@ -95,4 +95,58 @@
 
     hash_table 全面启用同步锁, hash_table_client_t 和 hash_table_info_t
     使用读写锁, 保护哈希表结构不被破坏
-    SSL_accept,
+
+    频繁调用SSL_new和SSL_free可能发生段错误,创建一个SSL连接池预先分配一定数量地SSL连接
+    使用ssl_pool_node_fetch + SSL_set_fd + ssl_pool_node_release方式完成ssl数据交互
+    实践调试后发现: SSL 套接字不能自由复用, SSL_set_fd 不能完全得知SSL套接字的全部状态
+    改进: 新建连接时使fetch, 销毁连接时release, 而不是每次IO执行这个操作
+    bug追加: fetch有可能得到NULL使得SSL_set_fd引发段错误
+    解决: 设置一个超时检查, 在一定限度下尝试重新获取SSL套接字
+
+   // TODO
+    努力优化代码一段时间后, 压力测试时已经不会发生段错误了
+    但是在这种压力下, epoll_wait由于未知原因不能再触发事件
+    即不能响应正常的请求了
+
+21.processHttpClient/processRaspiClient仍然存在竞争关系
+    曾尝试为每一个客户端结构体设计互斥锁保护客户端连接资源不被破坏
+    但是这样仍然存在问题: 假设某客户端数据发送很频繁,epoll分配了两个(或以上)任务线程
+    率先调用readClient的线程可能取走了缓冲区内所有的数据,虽然后续线程在read返回0后直接退出了不会触发段错误之类的
+    然而取走了所有数据的第一个线程并不会处理所有数据,相反它只会处理一个单位的数据
+    因此造成了请求丢失的问题
+    解决: processRaspiClient比较简单, 每次限制它读取固定字节数, 防止多读数据
+    // TODO
+    processHttpClient需要设定一个循环每次读取保存一个字符, 直到出现HTTP报文结束标记
+
+
+22.服务器在对客户端套接字调用SSL_shutdown时发生了SIGPIPE信号
+    推测: 为了让服务器主动产生EPOLLHUP事件, 手动调用了close
+    解决1: 忽略SIGPIPE信号
+    解决2: 在需要关闭客户端时复制性地再写一遍释放套接字地过程
+
+23.HTTPS网页SSL握手无限跳SSL_accept failed (现象同19)
+    分析: SSL_accept失败后缓冲区应该仍然存在数据, 为了手动触发EPOLLHUP事件
+    我们调用recv+MSG_PEEK去尝试读取数据,再加上当时使用的是水平触发, 因此产生该错误
+    解决: 去除相关代码
+
+24.httpEventPoll将客户端套接字设置为边沿触发+(启用/禁用Nagle算法)不能稳定地触发客户端套接字的可读事件
+    推测: 客户端浏览器数据发送事件间隔太短, 客户端发送了请求当没能触发事件(epoll等待缓冲区发送变化)
+    但是客户端一直等待响应,发生了死锁
+    解决: 更换为边沿触发,悲~~
+
+25.ssl连接池释放(归还)连接后,未恢复SSL套接字的初始状态
+    SSL套接字生命周期:
+    状态1: 调用了SSL_new出生
+    状态2: 调用了SSL_set_fd绑定了Unix套接字
+    状态3: 调用了SSL_accept接受了客户端连接
+    状态4: 调用了SSL_read/SSL_write产生了I/O
+    状态5: 调用了SSL_shutdown关闭了客户端连接
+    状态6: 调用了SSL_free释放了套接字
+
+    调用SSL_clear后会恢复到状态1之前, SSL_CTX信息也会一同被清理
+    因此需要继续调用SSL_set_SSL_CTX函数
+    理论是这样, 但是我实际运行却不是这样
+
+26.当服务器以非SSL模式运行收到浏览器HTTPS的请求时发生段错误
+    分析: SSL握手信息被当成HTTP报文进行解析引发错误
+    // TODO

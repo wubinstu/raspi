@@ -8,13 +8,13 @@
 #include "head.h"
 #include "types.h"
 
-extern int readClient (client_info_t clientInfo, void * buf, int size);
+extern int readClient (client_info_t * clientInfo, void * buf, int size);
 
-extern int writeClient (client_info_t clientInfo, void * buf, int size);
+extern int writeClient (client_info_t * clientInfo, void * buf, int size);
 
-extern bool initServerSocket ();
+extern bool initServerSocket (server_info_t * serverInfo, unsigned short port);
 
-extern void loadSSLServ ();
+extern void loadSSLServ (server_info_t * serverInfo);
 
 extern void negotiateUUID (client_info_t * clientInfo);
 
