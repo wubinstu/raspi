@@ -45,8 +45,8 @@ int main (int argc, const char * argv[])
     if (sigsetjmp(jmp_server_rest, true) != 0)
         confToVarServ ();
 
-    //// TODO
-//    sigRegisterServ ();
+
+    sigRegisterServ ();
 
     sql_pool_accept_raspi =
             sql_pool_init (config_server.sqlHost,

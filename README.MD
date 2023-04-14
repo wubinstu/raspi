@@ -24,29 +24,30 @@
 理论意义: 学习Linux大量库函数和系统调用, 学习纯C语言编程, Linux系统编程, Socket网络编程, MySQL数据库编程, OpenSSL编程, HTTP编程
 ```
 
-### 没有树莓派(客户端模拟器)?
+### 没有树莓派? (客户端模拟器)
 
 ```text
 这意味着您可能无法使用wiringPi库,不过我们贴心地准备了模拟器模式
 它们的区别仅仅在于使用模拟器模式后raspi_drive.c文件中原本直接操作物理引脚电平获取数据的方式更改为获取随机数,没有其他影响
 模式切换方式: 在CMakeLists.txt文件中找到 "set(SIMULATOR false)",将false更改为true即可
+开启了SIMULATOR宏定义后客户端不再要求必须编译运行于树莓派上
 ```
 
 ### 技术栈
 
-```text
-基于wiringPi的传感器硬件的驱动编写
-Linux 二进制I/O, 文件I/O, socket网络I/O, 内存映射
-Linux 常见不稳定的经典信号量的捕捉与处理
-字符串处理, 单链表, 哈希表实现与应用
-系统日志syslogd使用, PID锁文件的使用, config配置文件的定义和使用
-mysql 数据库调用, SQL连接池实现与应用
-POSIX线程池实现与应用, 线程同步, 临界区, 读写锁, 互斥量的使用
-OpenSSL的应用, 证书密钥的管理和使用, 加密通信技术支持
-HTTPS的实现, HTTP请求回复报文的组装和拆解, HTML页面设计, CSS美化, Ajax请求
-Linux 五种I/O模型之一"I/O多路复用", epoll 模型的搭建和使用
-跨函数栈跳转, 客户端软件短线自动重连
-自定义清理函数的定义和使用, 清理程序生成的数据结构
+```markdown
+* 基于wiringPi的传感器硬件的驱动编写
+* Linux 二进制I/O, 文件I/O, socket网络I/O, 内存映射
+* Linux 常见不稳定的经典信号量的捕捉与处理
+* 字符串处理, 单链表, 哈希表实现与应用
+* 系统日志syslogd使用, PID锁文件的使用, config配置文件的定义和使用
+* mysql 数据库调用, SQL连接池实现与应用
+* POSIX线程池实现与应用, 线程同步, 临界区, 读写锁, 互斥量的使用
+* OpenSSL的应用, 证书密钥的管理和使用, 加密通信技术支持
+* HTTPS的实现, HTTP请求回复报文的组装和拆解, HTML页面设计, CSS美化, Ajax请求
+* Linux 五种I/O模型之一"I/O多路复用", epoll 模型的搭建和使用
+* 跨函数栈跳转, 客户端软件短线自动重连
+* 自定义清理函数的定义和使用, 清理程序生成的数据结构
 ```
 
 ### 安装
@@ -111,7 +112,7 @@ $ rain_server --settings      # 打开配置文件
 # 配置文件书写规则: key = value
 # 1.大小写不敏感
 # 2.自动忽略空格,双引号,制表符
-# 3.注释请用井号开头,可以写成行尾注释
+# 3.注释请用井号开头,可以写行尾注释
 # 4.请不要乱写一些非法配置,否则程序可能不能正确运行!
 # 5.配置文件优先级小于运行参数!
 # 以下是书写范例:
@@ -119,84 +120,84 @@ $ rain_server --settings      # 打开配置文件
 
 #### 服务器配置文件
 
-```text
+```yaml
 # 指定服务器地址绑定的地址
 # 0.0.0.0:     所有网卡网络可见
 # 127.0.0.1:   本机网络可见
 # 指定网卡地址:  仅特定网卡网络可见
-#BindAddr = 0.0.0.0
+BindAddr = 0.0.0.0
 
-# 指定服务器绑定的端口号
-#BindPort = 9190
+  # 指定服务器绑定的端口号
+BindPort = 9190
 
-# 指定服务器HTTP端口号
-#HttpPort = 8080
+  # 指定服务器HTTP端口号
+HttpPort = 8080
 
-# SSL模式选择,用于解释客户端如何和服务器连接
-# disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先)
-# default: 加载CA证书,服务器证书密钥, 启用SSL连接
-#SSLMODE = default
+  # SSL模式选择,用于解释客户端如何和服务器连接
+  # disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先)
+  # default: 加载CA证书,服务器证书密钥, 启用SSL连接
+SSLMODE = default
 
-# 指定CA文件路径
-#CAFILE = /path/to/ca.crt
+  # 指定CA文件路径
+CAFILE = /path/to/ca.crt
 
-# 指定服务器证书文件路径
-#SERVCERT = /path/to/server.crt
+  # 指定服务器证书文件路径
+SERVCERT = /path/to/server.crt
 
-# 指定服务器私秘钥文件路径
-#SERVKEY = /path/to/server.key
+  # 指定服务器私秘钥文件路径
+SERVKEY = /path/to/server.key
 
-# disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先)
-# default: 使用默认的文件位置: /var/run/*.pid (推荐)
-# "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件)
-#PIDFILE = default
+  # disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先)
+  # default: 使用默认的文件位置: /var/run/*.pid (推荐)
+  # "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件)
+PIDFILE = default
 
-# disable: 调试模式 
-# default: 守护进程模式 
-#DAEMON = default 
+  # disable: 调试模式 
+  # default: 守护进程模式 
+DAEMON = default
 
-# 设置 MySQL 服务器
-#SQLHOST = 127.0.0.1
+  # 设置 MySQL 服务器
+SQLHOST = 127.0.0.1
 
-# 设置 MySQL 服务端口
-#SQLPORT = 3306
+  # 设置 MySQL 服务端口
+SQLPORT = 3306
 
-# 设置 MySQL 用户名
-#SQLUSER = root
+  # 设置 MySQL 用户名
+SQLUSER = root
 
-# 设置 MySQL 密码 (不建议设置在配置文件里)
-#SQLPASS = mysql
+  # 设置 MySQL 密码 (不建议设置在配置文件里)
+SQLPASS = mysql
 
-# 设置 MySQL 数据库名称
-#SQLNAME = rain
+  # 设置 MySQL 数据库名称
+SQLNAME = rain
 ```
 
 #### 客户端配置文件
 
-```text
+```yaml
 # 指定服务器地址,IPv4地址和域名都是可以的
-#ServAddr = 127.0.0.1
+ServAddr = 127.0.0.1
 
-# 指定服务器端口号
-#ServPort = 1234
+  # 指定服务器端口号
+ServPort = 1234
 
-# SSL模式选择,用于解释客户端如何和服务器连接 
-# disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先) 
-# default: 不加载安全文件, 启用SSL连接, 不要求鉴别服务器身份(推荐) 
-# "CA FILE PATH": 加载CA证书, 启用SSL连接, 验证服务器身份(最可靠) 
-#CAFILE = default
+  # SSL模式选择,用于解释客户端如何和服务器连接 
+  # disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先) 
+  # default: 不加载安全文件, 启用SSL连接, 不要求鉴别服务器身份(推荐) 
+  # "CA FILE PATH": 加载CA证书, 启用SSL连接, 验证服务器身份(最可靠) 
+CAFILE = default
 
-# disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先) 
-# default: 使用默认的文件位置: /var/run/*.pid (推荐) 
-# "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件) 
-#PIDFILE = default
+  # disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先) 
+  # default: 使用默认的文件位置: /var/run/*.pid (推荐) 
+  # "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件) 
+PIDFILE = default
 
-# disable: 调试模式  
-# default: 守护进程模式  
-#DAEMON = default
+  # disable: 调试模式  
+  # default: 守护进程模式  
+DAEMON = default
 
-# 数据采样间隔,单位: 秒 
-#Interval = 5
+  # 数据采样间隔,单位: 秒 
+Interval = 5
 ```
 
 ### 压力测试软件的使用
@@ -222,6 +223,14 @@ create table if not exists raspi
     env_temp    FLOAT(2)
 );
 ```
+
+### 静态库依赖关系
+
+![](raspi_lib_dependency.svg)
+
+### 静态库列表
+
+![](raspi_lib_list.svg)
 
 ### 常见问题
 

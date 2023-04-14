@@ -581,11 +581,18 @@ void * processHttpClient (void * args)
 
 
     memset (task_client->clientInfo.buf, 0, BUFSIZ);
-    read_len = readClient (& task_client->clientInfo, task_client->clientInfo.buf, BUFSIZ);
-    if (read_len <= 0)
+    char rd;
+    while (true)
     {
-        pthread_mutex_unlock (& task_client->clientInfo.onProcess);
-        return (void *) -1;
+        read_len = readClient (& task_client->clientInfo, & rd, 1);
+        if (read_len <= 0)
+        {
+            pthread_mutex_unlock (& task_client->clientInfo.onProcess);
+            return (void *) -1;
+        }
+        strncat (task_client->clientInfo.buf, & rd, 1);
+        if (strstr (task_client->clientInfo.buf, "\r\n\r\n") != NULL)
+            break;
     }
 //    fputs (task_client->clientInfo.buf, stdout);
 
