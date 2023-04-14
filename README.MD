@@ -120,83 +120,83 @@ $ rain_server --settings      # 打开配置文件
 
 #### 服务器配置文件
 
-```yaml
+```ini
 # 指定服务器地址绑定的地址
 # 0.0.0.0:     所有网卡网络可见
 # 127.0.0.1:   本机网络可见
 # 指定网卡地址:  仅特定网卡网络可见
 BindAddr = 0.0.0.0
 
-  # 指定服务器绑定的端口号
+# 指定服务器绑定的端口号
 BindPort = 9190
 
-  # 指定服务器HTTP端口号
+# 指定服务器HTTP端口号
 HttpPort = 8080
 
-  # SSL模式选择,用于解释客户端如何和服务器连接
-  # disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先)
-  # default: 加载CA证书,服务器证书密钥, 启用SSL连接
+# SSL模式选择,用于解释客户端如何和服务器连接
+# disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先)
+# default: 加载CA证书,服务器证书密钥, 启用SSL连接
 SSLMODE = default
 
-  # 指定CA文件路径
+# 指定CA文件路径
 CAFILE = /path/to/ca.crt
 
-  # 指定服务器证书文件路径
+# 指定服务器证书文件路径
 SERVCERT = /path/to/server.crt
 
-  # 指定服务器私秘钥文件路径
+# 指定服务器私秘钥文件路径
 SERVKEY = /path/to/server.key
 
-  # disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先)
-  # default: 使用默认的文件位置: /var/run/*.pid (推荐)
-  # "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件)
+# disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先)
+# default: 使用默认的文件位置: /var/run/*.pid (推荐)
+# "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件)
 PIDFILE = default
 
-  # disable: 调试模式 
-  # default: 守护进程模式 
+# disable: 调试模式 
+# default: 守护进程模式 
 DAEMON = default
 
-  # 设置 MySQL 服务器
+# 设置 MySQL 服务器
 SQLHOST = 127.0.0.1
 
-  # 设置 MySQL 服务端口
+# 设置 MySQL 服务端口
 SQLPORT = 3306
 
-  # 设置 MySQL 用户名
+# 设置 MySQL 用户名
 SQLUSER = root
 
-  # 设置 MySQL 密码 (不建议设置在配置文件里)
+# 设置 MySQL 密码 (不建议设置在配置文件里)
 SQLPASS = mysql
 
-  # 设置 MySQL 数据库名称
+# 设置 MySQL 数据库名称
 SQLNAME = rain
 ```
 
 #### 客户端配置文件
 
-```yaml
+```ini
 # 指定服务器地址,IPv4地址和域名都是可以的
 ServAddr = 127.0.0.1
 
-  # 指定服务器端口号
+# 指定服务器端口号
 ServPort = 1234
 
-  # SSL模式选择,用于解释客户端如何和服务器连接 
-  # disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先) 
-  # default: 不加载安全文件, 启用SSL连接, 不要求鉴别服务器身份(推荐) 
-  # "CA FILE PATH": 加载CA证书, 启用SSL连接, 验证服务器身份(最可靠) 
+# SSL模式选择,用于解释客户端如何和服务器连接 
+# disable: 禁用SSL连接, 使用TCP明文通信(调试模式优先) 
+# default: 不加载安全文件, 启用SSL连接, 不要求鉴别服务器身份(推荐) 
+# "CA FILE PATH": 加载CA证书, 启用SSL连接, 验证服务器身份(最可靠) 
 CAFILE = default
 
-  # disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先) 
-  # default: 使用默认的文件位置: /var/run/*.pid (推荐) 
-  # "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件) 
+# disable: 禁用PID文件,不检查程序运行的唯一性(调试模式优先) 
+# default: 使用默认的文件位置: /var/run/*.pid (推荐) 
+# "PID FILE PATH": 自定义pid文件位置(注意: 你可能需要同步手动修改systemd unit文件) 
 PIDFILE = default
 
-  # disable: 调试模式  
-  # default: 守护进程模式  
+# disable: 调试模式  
+# default: 守护进程模式  
 DAEMON = default
 
-  # 数据采样间隔,单位: 秒 
+# 数据采样间隔,单位: 秒 
 Interval = 5
 ```
 
