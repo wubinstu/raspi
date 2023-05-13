@@ -8,10 +8,22 @@
 #include "fcntl.h"
 #include "signal.h"
 
-int main (int argc, char * argv[])
-{
-    if (argc < 3)
-    {
+int num;
+pid_t pid[1000] = {0};
+
+void sig_int_handler (int sig) {
+    for (int i = 0; i < num; i++) {
+        if (pid[i] == 0 || pid[i] == -1)
+            continue;
+        printf ("killing NO.%d process\n", i);
+        kill (pid[i], SIGINT);
+        sleep (1);
+    }
+    exit (0);
+}
+
+int main (int argc, char *argv[]) {
+    if (argc < 3) {
         printf ("usage: <multi-num> <client_path> [client_args]\n");
         return -1;
     }
@@ -23,28 +35,26 @@ int main (int argc, char * argv[])
         exit (0);
     else exit (-1);
 
-    int num = (int) strtol (argv[1], NULL, 10);
-    if (num <= 0)
-    {
+    signal (SIGINT, sig_int_handler);
+
+    num = (int) strtol (argv[1], NULL, 10);
+    if (num <= 0) {
         printf ("multi-num error\n");
         return -1;
-    } else if (num > 1000)
-    {
+    } else if (num > 1000) {
         printf ("Warning: You set a big number!\n");
         return -1;
     }
 
-    pid_t pid[num];
-    for (int i = 0; i < num; i++)
-    {
+
+    for (int i = 0; i < num; i++) {
         printf ("forking NO.%d process\n", i);
         pid[i] = fork ();
-        if (pid[i] == 0)
-        {
+        if (pid[i] == 0) {
             close (0);
             close (1);
             close (2);
-            execv (argv[2], & argv[2]);
+            execv (argv[2], &argv[2]);
             exit (-1);  // 确保安全
         }
         sleep (1);
@@ -53,11 +63,7 @@ int main (int argc, char * argv[])
     printf ("Kill process After 10 secs...\n");
     sleep (10);
 
-    for (int i = 0; i < num; i++)
-    {
-        printf ("killing NO.%d process\n", i);
-        kill (pid[i], SIGINT);
-        sleep (1);
-    }
+    raise (SIGINT);
+
 
 }

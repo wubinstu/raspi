@@ -32,7 +32,7 @@ float read_cpu_temp ()
 void turn_on_led (int pinNum)
 {
     pinMode (pinNum, OUTPUT);
-    digitalWrite (pinNum, LOW);
+    digitalWrite (pinNum, LOW);  // 反向驱动
 }
 
 void turn_off_led (int pinNum)
@@ -73,7 +73,7 @@ float disMeasure (int Trans, int Receive)
     long start, stop;
     float dis;
 
-    digitalWrite (Trans, LOW);//写入阵脚电平为 0 (低电平) < 注意:低电平为有效电平 >
+    digitalWrite (Trans, LOW);//写入阵脚电平为 0 (低电平)
     delayMicroseconds (2); //时间延迟函数, 单位为毫秒
     digitalWrite (Trans, HIGH);
     delayMicroseconds (10);
@@ -363,7 +363,7 @@ int initPi ()
 {
     errno = 0;
     perr (true, LOG_INFO, "The wiringpi library is not used. Enter the simulator mode. "
-                            "All monitoring data will come from random numbers in the future");
+                          "All monitoring data will come from random numbers in the future");
     return 0;
 }
 
@@ -403,11 +403,11 @@ bool TEST_IN (int LINE)
     return true;
 }
 
-bool readSensorData (int pinNum, float *Humidity, float *Temperature)
+bool readSensorData (int pinNum, float * Humidity, float * Temperature)
 {
     perr (true, LOG_INFO, "[simulator] pinNum:%d: readSensorData", pinNum);
-    *Humidity = (float) (randnum () % 41 + 40);
-    *Temperature = (float) (randnum () % 41 + 20);
+    * Humidity = (float) (randnum () % 41 + 40);
+    * Temperature = (float) (randnum () % 41 + 20);
     return true;
 }
 

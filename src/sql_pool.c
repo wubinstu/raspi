@@ -246,9 +246,10 @@ void * sql_pool_manage (void * args)
     while (!pool->shutdown)
     {
         sleep (SQL_POOL_MANAGER_SLEEP_TIME);
-        if (pool->conn_cur - pool->conn_busy <= 1)
+        if (pool->conn_cur - pool->conn_busy <= 1 && pool->conn_cur < pool->conn_max)
             sql_pool_conn_add (pool, SQL_CONN_ADJUST);
-        else if ((pool->conn_cur - pool->conn_busy) / (double) pool->conn_max > (double) 0.5)
+        else if ((pool->conn_cur - pool->conn_busy) / (double) pool->conn_max > (double) 0.5
+                 && pool->conn_cur > pool->conn_min)
             sql_pool_conn_del (pool, SQL_CONN_ADJUST);
         else continue;
     }
